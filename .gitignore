@@ -1,0 +1,24 @@
+node_modules
+.next
+.DS_Store
+.playwright-mcp
+.pnpm-store
+coverage
+dist
+src/generated/prisma
+tsconfig.tsbuildinfo
+
+# Prisma and local runtime data
+dev.db
+dev.db-journal
+dev.db-shm
+dev.db-wal
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log

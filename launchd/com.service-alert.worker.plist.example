@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.service-alert.worker</string>
+  <key>WorkingDirectory</key>
+  <string>/path/to/service-alert</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/pnpm</string>
+    <string>worker:check</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>DATABASE_URL</key>
+    <string>file:./dev.db</string>
+    <key>SLACK_WEBHOOK_URL</key>
+    <string></string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>StandardOutPath</key>
+  <string>/path/to/service-alert/logs/worker.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/path/to/service-alert/logs/worker.err.log</string>
+</dict>
+</plist>
