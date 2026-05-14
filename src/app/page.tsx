@@ -177,7 +177,7 @@ export default async function DashboardPage() {
                 <div>
                   <div className="service-label">{notification.serviceName}</div>
                   <strong>{notification.incidentTitle ?? eventTypeLabel(notification.eventType)}</strong>
-                  <p>{notification.errorMessage ?? eventTypeLabel(notification.eventType)}</p>
+                  <p>{notificationDetailText(notification)}</p>
                 </div>
                 <StatusPill status={notification.slackStatus} />
               </article>
@@ -380,6 +380,14 @@ function statusLabel(status: string) {
 
 function eventTypeLabel(eventType: string) {
   return statusLabel(eventType);
+}
+
+function notificationDetailText(notification: DashboardData["notifications"][number]) {
+  if (notification.errorMessage === "SLACK_WEBHOOK_URL is not configured") {
+    return "Webhook 설정 누락으로 미발송";
+  }
+
+  return notification.errorMessage ?? eventTypeLabel(notification.eventType);
 }
 
 function formatDateTime(value: string | null) {

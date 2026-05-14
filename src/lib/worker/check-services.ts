@@ -45,7 +45,16 @@ export async function runServiceChecks(options: RunServiceChecksOptions) {
     try {
       const snapshot = await fetchProviderSnapshot(service, fetchImpl);
       await persistProviderSnapshot(options.prisma, service.id, snapshot);
-      await createNotifications(options.prisma, service, snapshot, options.slackWebhookUrl);
+      const resolvedIncidents = await resolveMissingIncidents(options.prisma, service.id, snapshot);
+      await createNotifications(
+        options.prisma,
+        service,
+        {
+          ...snapshot,
+          incidents: [...snapshot.incidents, ...resolvedIncidents]
+        },
+        options.slackWebhookUrl
+      );
       providersChecked += 1;
     } catch (error) {
       failures.push({
@@ -137,6 +146,76 @@ async function upsertIncident(prisma: PrismaClient, serviceId: string, incident:
       rawPayload: JSON.stringify(incident.raw)
     }
   });
+}
+
+async function resolveMissingIncidents(prisma: PrismaClient, serviceId: string, snapshot: ProviderSnapshot) {
+  const activeStoredIncidents = await prisma.incident.findMany({
+    where: {
+      serviceId,
+      isMaintenance: false,
+      resolvedAt: null
+    }
+  });
+  const resolvedIncidents = buildResolvedMissingIncidents(snapshot, activeStoredIncidents);
+
+  for (const incident of resolvedIncidents) {
+    await upsertIncident(prisma, serviceId, incident);
+  }
+
+  return resolvedIncidents;
+}
+
+export function buildResolvedMissingIncidents(
+  snapshot: ProviderSnapshot,
+  storedIncidents: Array<{
+    externalId: string;
+    title: string;
+    status: string;
+    impact: string | null;
+    url: string | null;
+    startedAt: Date | null;
+    updatedAt: Date | null;
+    resolvedAt: Date | null;
+    isMaintenance: boolean;
+    shouldNotify: boolean;
+    rawPayload: string;
+  }>
+): NormalizedIncident[] {
+  if (snapshot.service.provider === "aws") {
+    return [];
+  }
+
+  const currentIncidentIds = new Set(snapshot.incidents.map((incident) => incident.externalId));
+
+  return storedIncidents
+    .filter((incident) => !incident.isMaintenance)
+    .filter((incident) => !incident.resolvedAt)
+    .filter((incident) => !currentIncidentIds.has(incident.externalId))
+    .map((incident) => ({
+      externalId: incident.externalId,
+      title: incident.title,
+      status: "resolved",
+      impact: incident.impact,
+      url: incident.url,
+      startedAt: incident.startedAt,
+      updatedAt: snapshot.checkedAt,
+      resolvedAt: snapshot.checkedAt,
+      isMaintenance: false,
+      shouldNotify: incident.shouldNotify,
+      raw: {
+        ...parseRawPayload(incident.rawPayload),
+        resolvedByMissingFromProvider: true
+      }
+    }));
+}
+
+function parseRawPayload(rawPayload: string) {
+  try {
+    const parsed = JSON.parse(rawPayload) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 async function createNotifications(

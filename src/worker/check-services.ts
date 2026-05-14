@@ -1,5 +1,8 @@
 import { prisma } from "../lib/db/prisma";
+import { loadDotEnv } from "../lib/worker/env";
 import { runServiceChecks } from "../lib/worker/check-services";
+
+loadDotEnv();
 
 runServiceChecks({
   prisma,
