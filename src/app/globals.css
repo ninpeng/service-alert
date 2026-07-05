@@ -353,13 +353,15 @@ a.metric-card:focus-visible {
 
 .incident-list,
 .run-list,
-.notification-list {
+.notification-list,
+.operation-list {
   display: grid;
 }
 
 .incident-row,
 .run-row,
-.notification-row {
+.notification-row,
+.operation-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -371,8 +373,68 @@ a.metric-card:focus-visible {
 
 .incident-row:last-child,
 .run-row:last-child,
-.notification-row:last-child {
+.notification-row:last-child,
+.operation-row:last-child {
   border-bottom: 0;
+}
+
+.operation-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  min-width: 0;
+}
+
+.operation-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #eef4ff;
+  color: var(--accent);
+}
+
+.operation-value {
+  display: flex;
+  align-items: center;
+  min-height: 26px;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.operation-row p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.log-row {
+  align-items: flex-start;
+}
+
+.log-lines {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-lines code {
+  display: block;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-subtle);
+  color: #344054;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 7px 9px;
 }
 
 .incident-main h3,
@@ -447,6 +509,7 @@ a.metric-card:focus-visible {
   .section-heading,
   .incident-row,
   .run-row,
+  .operation-row,
   .notification-row {
     align-items: stretch;
     flex-direction: column;

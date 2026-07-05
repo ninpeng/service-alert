@@ -4,6 +4,8 @@ JIRA, Bitbucket, Slack, Vercel, AWS, Notion, Figma의 공식 상태 소스를 �
 
 Next.js 대시보드에서 현재 서비스 상태, 최근 incident, Slack 발송 이력, worker 실행 결과를 확인합니다. macOS에서는 `launchd`로 웹 서버와 worker를 자동 실행할 수 있습니다.
 
+앞으로 개선할 작업 목록은 [docs/ROADMAP.md](docs/ROADMAP.md)에 정리합니다.
+
 ## 주요 동작
 
 - 대시보드 포트: `3333`
@@ -82,6 +84,9 @@ cp launchd/com.service-alert.worker.plist.example ~/Library/LaunchAgents/com.ser
 
 새 PC나 다른 경로에서 사용할 때는 plist 안의 값을 먼저 확인합니다.
 
+- `ProgramArguments`의 Node 22 절대 경로
+- `ProgramArguments`의 corepack `pnpm.js` 절대 경로
+- `PATH` 맨 앞의 Node 22 `bin` 경로
 - `WorkingDirectory`
 - `DATABASE_URL`
 - `SLACK_WEBHOOK_URL`
@@ -89,21 +94,65 @@ cp launchd/com.service-alert.worker.plist.example ~/Library/LaunchAgents/com.ser
 - `StandardOutPath`
 - `StandardErrorPath`
 
+`launchd`는 `fnm`, `nvm` 같은 셸 초기화 설정을 읽지 않습니다. 그래서 plist에서는 `pnpm`만 직접 실행하지 않고, Node 22 바이너리와 corepack의 `pnpm.js`를 절대 경로로 고정합니다.
+
+이 Mac의 fnm Node 22 예시는 아래와 같습니다.
+
+```text
+/Users/ninpeng/.local/share/fnm/node-versions/v22.22.0/installation/bin/node
+/Users/ninpeng/.local/share/fnm/node-versions/v22.22.0/installation/lib/node_modules/corepack/dist/pnpm.js
+```
+
 로드:
 
 ```sh
-launchctl load ~/Library/LaunchAgents/com.service-alert.web.plist
-launchctl load ~/Library/LaunchAgents/com.service-alert.worker.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.service-alert.web.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.service-alert.worker.plist
 ```
 
 언로드:
 
 ```sh
-launchctl unload ~/Library/LaunchAgents/com.service-alert.web.plist
-launchctl unload ~/Library/LaunchAgents/com.service-alert.worker.plist
+launchctl bootout gui/$(id -u)/com.service-alert.web
+launchctl bootout gui/$(id -u)/com.service-alert.worker
 ```
 
 로컬 Mac이 꺼져 있거나 sleep 상태면 worker도 실행되지 않습니다.
+
+### Node 버전 변경 대응
+
+`better-sqlite3`는 native dependency라서 설치/빌드한 Node ABI와 실행 중인 Node ABI가 다르면 worker나 Next.js 서버가 실패할 수 있습니다. Homebrew 업데이트 등으로 Node가 바뀐 뒤에는 launchd plist의 Node 경로를 다시 확인하고, 같은 Node로 native dependency와 Next.js build를 다시 만듭니다.
+
+```sh
+NODE22="$HOME/.local/share/fnm/node-versions/v22.22.0/installation/bin/node"
+PNPM22="$HOME/.local/share/fnm/node-versions/v22.22.0/installation/lib/node_modules/corepack/dist/pnpm.js"
+NODE22_BIN="$(dirname "$NODE22")"
+PATH="$NODE22_BIN:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" "$NODE22" "$PNPM22" rebuild better-sqlite3
+PATH="$NODE22_BIN:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" "$NODE22" "$PNPM22" build
+```
+
+이미 launchd가 실행 중이면 재로드합니다.
+
+```sh
+launchctl bootout gui/$(id -u)/com.service-alert.web
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.service-alert.web.plist
+launchctl bootout gui/$(id -u)/com.service-alert.worker
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.service-alert.worker.plist
+```
+
+상태 확인:
+
+```sh
+launchctl print gui/$(id -u)/com.service-alert.web
+launchctl print gui/$(id -u)/com.service-alert.worker
+curl -I http://localhost:3333/
+curl -I http://localhost:3333/api/dashboard
+tail -n 40 logs/web.err.log
+tail -n 40 logs/worker.out.log
+tail -n 40 logs/worker.err.log
+```
+
+브라우저에서 `ChunkLoadError`가 보이면 서버가 오래된 build manifest를 잡고 있거나 브라우저가 예전 chunk URL을 들고 있는 경우가 많습니다. Node 22로 재빌드하고 launchd를 재시작한 뒤에도 남아 있으면 브라우저를 hard refresh합니다.
 
 ## 새 환경에서 실행하기
 

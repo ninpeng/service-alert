@@ -1,11 +1,13 @@
 import { prisma } from "../db/prisma";
 import { ensureDefaultServices } from "../db/seed-defaults";
+import { buildOperationalStatus, readRecentLogSummary } from "./operational-status";
 import { getLatestDataUpdatedAt, summarizeDashboardStatus } from "./summary";
 
 export async function getDashboardData() {
   await ensureDefaultServices(prisma);
 
-  const [services, workerRuns, notifications] = await Promise.all([
+  const generatedAt = new Date();
+  const [services, workerRuns, notifications, webLog, workerLog] = await Promise.all([
     prisma.monitoredService.findMany({
       include: {
         components: {
@@ -44,12 +46,23 @@ export async function getDashboardData() {
         createdAt: "desc"
       },
       take: 8
-    })
+    }),
+    readRecentLogSummary("web.err.log"),
+    readRecentLogSummary("worker.err.log")
   ]);
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: generatedAt.toISOString(),
     dataUpdatedAt: getLatestDataUpdatedAt({ services, workerRuns })?.toISOString() ?? null,
+    operationalStatus: buildOperationalStatus({
+      generatedAt,
+      workerRuns,
+      slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
+      logs: {
+        web: webLog,
+        worker: workerLog
+      }
+    }),
     services: services.map((service) => ({
       id: service.id,
       name: service.name,
