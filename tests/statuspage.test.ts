@@ -79,4 +79,41 @@ describe("parseStatuspageSummary", () => {
       isMaintenance: true
     });
   });
+
+  it("removes excluded components and their incidents before recalculating status", () => {
+    const snapshot = parseStatuspageSummary(
+      {
+        components: [
+          { id: "chatgpt", name: "ChatGPT", status: "operational" },
+          { id: "fedramp", name: "FedRAMP", status: "major_outage" }
+        ],
+        incidents: [
+          {
+            id: "fed-incident",
+            name: "FedRAMP outage",
+            status: "investigating",
+            impact: "critical",
+            components: [{ id: "fedramp", name: "FedRAMP" }]
+          },
+          {
+            id: "global-incident",
+            name: "Provider-wide degradation",
+            status: "investigating",
+            impact: "minor"
+          }
+        ],
+        status: { indicator: "critical" }
+      },
+      {
+        provider: "openai",
+        serviceName: "OpenAI",
+        endpoint: "https://status.openai.com/api/v2/summary.json",
+        excludedComponentNames: ["FedRAMP"]
+      }
+    );
+
+    expect(snapshot.components.map((component) => component.name)).toEqual(["ChatGPT"]);
+    expect(snapshot.incidents.map((incident) => incident.externalId)).toEqual(["global-incident"]);
+    expect(snapshot.overallStatus).toBe("minor");
+  });
 });
