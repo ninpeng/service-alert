@@ -21,6 +21,7 @@ function item(input: {
   title: string;
   status: string;
   components?: string[];
+  description?: string;
   pubDate?: string;
 }) {
   const components = input.components?.length
@@ -34,7 +35,7 @@ function item(input: {
     <link>${input.link ?? `https://status.didit.me/incidents/${input.guid}`}</link>
     <guid>${input.guid}</guid>
     <pubDate>${input.pubDate ?? "Mon, 13 Jul 2026 09:30:00 GMT"}</pubDate>
-    <description><![CDATA[<b>Status: ${input.status}</b>${components}]]></description>
+    <description><![CDATA[${input.description ?? `<b>Status: ${input.status}</b>${components}`}]]></description>
   </item>`;
 }
 
@@ -156,6 +157,87 @@ describe("parseIncidentIoRss", () => {
     expect(snapshot.incidents).toMatchObject([
       { externalId: "unknown-1", impact: null, isMaintenance: false, shouldNotify: true },
       { externalId: "maintenance-1", isMaintenance: true, shouldNotify: false }
+    ]);
+  });
+
+  it("parses a bare ampersand in an embedded description", () => {
+    const snapshot = parseIncidentIoRss(
+      feed(item({
+        guid: "bare-ampersand-1",
+        title: "API degradation",
+        status: "Investigating",
+        description: "<b>Status: Investigating</b><p>We are monitoring API & dashboard traffic.</p><b>Affected components</b><ul><li>Core APIs (Partial outage)</li></ul>"
+      })),
+      context
+    );
+
+    expect(snapshot.overallStatus).toBe("major");
+    expect(snapshot.components).toContainEqual(
+      expect.objectContaining({ name: "Core APIs", status: "partial_outage" })
+    );
+  });
+
+  it("finds affected component rows across multiple embedded lists", () => {
+    const snapshot = parseIncidentIoRss(
+      feed(item({
+        guid: "multiple-lists-1",
+        title: "Console degradation",
+        status: "Investigating",
+        description: "<b>Status: Investigating</b><p>Updates:</p><ul><li>We are monitoring the incident.</li></ul><b>Affected components</b><ul><li>Business Console (Degraded performance)</li></ul>"
+      })),
+      context
+    );
+
+    expect(snapshot.overallStatus).toBe("minor");
+    expect(snapshot.components).toContainEqual(
+      expect.objectContaining({ name: "Business Console", status: "degraded_performance" })
+    );
+  });
+
+  it("keeps explicit out-of-scope incidents from affecting Didit status or notifications", () => {
+    const snapshot = parseIncidentIoRss(
+      feed(
+        item({
+          guid: "out-of-scope-1",
+          title: "Third-party outage",
+          status: "Investigating",
+          components: ["Identity provider (Full outage)"]
+        }) +
+        item({
+          guid: "provider-wide-1",
+          title: "Provider investigation",
+          status: "Investigating"
+        })
+      ),
+      context
+    );
+
+    expect(snapshot.overallStatus).toBe("unknown");
+    expect(snapshot.components).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Core APIs", status: "operational" }),
+      expect.objectContaining({ name: "Business Console", status: "operational" }),
+      expect.objectContaining({ name: "Hosted Verification Web App", status: "operational" })
+    ]));
+    expect(snapshot.incidents).toMatchObject([
+      {
+        externalId: "out-of-scope-1",
+        impact: null,
+        shouldNotify: false,
+        raw: {
+          parsedComponents: [
+            {
+              name: "Identity provider",
+              sourceStatus: "Full outage",
+              status: "major_outage"
+            }
+          ]
+        }
+      },
+      {
+        externalId: "provider-wide-1",
+        impact: null,
+        shouldNotify: true
+      }
     ]);
   });
 

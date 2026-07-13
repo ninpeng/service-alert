@@ -37,9 +37,9 @@ export function parseIncidentIoRss(
     .filter((item) => !terminalStatuses.has(item.status));
   const components = buildComponents(activeItems, context);
   const incidents = activeItems.map(normalizeIncident);
-  const overallStatus = incidents
-    .filter((incident) => !incident.isMaintenance)
-    .map((incident) => overallFromImpact(incident.impact))
+  const overallStatus = activeItems
+    .filter((item) => !item.isMaintenance && item.isInScope)
+    .map((item) => overallFromImpact(item.impact))
     .reduce(moreSevereOverall, "none");
 
   return {
@@ -110,6 +110,8 @@ interface ParsedFeedItem {
   occurredAt: Date | null;
   isMaintenance: boolean;
   components: ParsedAffectedComponent[];
+  monitoredComponents: ParsedAffectedComponent[];
+  isInScope: boolean;
 }
 
 const terminalStatuses = new Set([
@@ -158,6 +160,10 @@ function parseFeedItem(
 
   const details = parseDescription(description, context.serviceName);
   const status = normalizeToken(details.status);
+  const monitoredComponents = details.components.filter((component) =>
+    context.sourceComponentNames.includes(component.name)
+  );
+  const isInScope = details.components.length === 0 || monitoredComponents.length > 0;
 
   if (!status) {
     throw new Error(
@@ -170,21 +176,24 @@ function parseFeedItem(
     externalId,
     title: textValue(item.title) ?? `${context.serviceName} status event`,
     status,
-    impact: impactFromComponents(details.components),
+    impact: isInScope ? impactFromComponents(monitoredComponents) : null,
     url,
     occurredAt: parseOptionalDate(item.pubDate),
     isMaintenance:
       Boolean(url?.includes("/maintenance/")) || status.startsWith("maintenance_"),
-    components: details.components
+    components: details.components,
+    monitoredComponents,
+    isInScope
   };
 }
 
 function parseDescription(description: string, serviceName: string) {
-  const fragment = `<root>${description}</root>`;
+  const fragment = `<root>${escapeBareAmpersands(description)}</root>`;
   validateXml(fragment, `Invalid incident.io RSS for ${serviceName}`);
 
   const document = new XMLParser({
-    isArray: (_tagName, jPath) => jPath === "root.b" || jPath === "root.ul.li"
+    isArray: (_tagName, jPath) =>
+      jPath === "root.b" || jPath === "root.ul" || jPath === "root.ul.li"
   }).parse(fragment) as { root?: unknown };
   const root = recordValue(document.root);
   const labels = arrayValue(root?.b).map(textValue).filter(isString);
@@ -196,8 +205,8 @@ function parseDescription(description: string, serviceName: string) {
     );
   }
 
-  const list = recordValue(root?.ul);
-  const components = arrayValue(list?.li)
+  const components = arrayValue(root?.ul)
+    .flatMap((list) => arrayValue(recordValue(list)?.li))
     .map(textValue)
     .filter(isString)
     .map(parseAffectedComponent)
@@ -238,7 +247,7 @@ function buildComponents(
   );
 
   for (const item of items) {
-    for (const component of item.components) {
+    for (const component of item.monitoredComponents) {
       const current = states.get(component.name);
 
       if (!current) {
@@ -282,11 +291,13 @@ function normalizeIncident(item: ParsedFeedItem): NormalizedIncident {
     updatedAt: item.occurredAt,
     resolvedAt: null,
     isMaintenance: item.isMaintenance,
-    shouldNotify: !item.isMaintenance,
+    shouldNotify: !item.isMaintenance && item.isInScope,
     raw: {
       ...item.source,
       parsedStatus: item.status,
-      parsedComponents: item.components
+      parsedComponents: item.components,
+      parsedMonitoredComponents: item.monitoredComponents,
+      isInScope: item.isInScope
     }
   };
 }
@@ -360,6 +371,13 @@ function validateXml(xml: string, prefix: string) {
   if (result !== true) {
     throw new Error(`${prefix}: ${result.err.msg}`);
   }
+}
+
+function escapeBareAmpersands(value: string) {
+  return value.replace(
+    /&(?!#\d+;|#x[0-9a-fA-F]+;|[a-zA-Z][a-zA-Z0-9]*;)/g,
+    "&amp;"
+  );
 }
 
 function parseOptionalDate(value: unknown) {
