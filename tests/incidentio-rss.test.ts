@@ -183,7 +183,7 @@ describe("parseIncidentIoRss", () => {
         guid: "multiple-lists-1",
         title: "Console degradation",
         status: "Investigating",
-        description: "<b>Status: Investigating</b><p>Updates:</p><ul><li>We are monitoring the incident.</li></ul><b>Affected components</b><ul><li>Business Console (Degraded performance)</li></ul>"
+        description: "<b>Status: Investigating</b><p>Updates:</p><ul><li>Mitigation (ongoing)</li></ul><b>Affected components</b><br/>\n<ul><li>Business Console (Degraded performance)</li></ul>"
       })),
       context
     );
@@ -192,6 +192,33 @@ describe("parseIncidentIoRss", () => {
     expect(snapshot.components).toContainEqual(
       expect.objectContaining({ name: "Business Console", status: "degraded_performance" })
     );
+  });
+
+  it("keeps an unlabeled narrative list provider-wide and in scope", () => {
+    const snapshot = parseIncidentIoRss(
+      feed(item({
+        guid: "provider-wide-narrative-list-1",
+        title: "Provider investigation",
+        status: "Investigating",
+        description: "<b>Status: Investigating</b><p>Updates:</p><ul><li>Mitigation (ongoing)</li></ul>"
+      })),
+      context
+    );
+
+    expect(snapshot.overallStatus).toBe("unknown");
+    expect(snapshot.components).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Core APIs", status: "operational" }),
+      expect.objectContaining({ name: "Business Console", status: "operational" }),
+      expect.objectContaining({ name: "Hosted Verification Web App", status: "operational" })
+    ]));
+    expect(snapshot.incidents).toMatchObject([
+      {
+        externalId: "provider-wide-narrative-list-1",
+        impact: null,
+        shouldNotify: true,
+        raw: { parsedComponents: [] }
+      }
+    ]);
   });
 
   it("keeps explicit out-of-scope incidents from affecting Didit status or notifications", () => {

@@ -191,13 +191,13 @@ function parseDescription(description: string, serviceName: string) {
   const fragment = `<root>${escapeBareAmpersands(description)}</root>`;
   validateXml(fragment, `Invalid incident.io RSS for ${serviceName}`);
 
-  const document = new XMLParser({
-    isArray: (_tagName, jPath) =>
-      jPath === "root.b" || jPath === "root.ul" || jPath === "root.ul.li"
-  }).parse(fragment) as { root?: unknown };
-  const root = recordValue(document.root);
-  const labels = arrayValue(root?.b).map(textValue).filter(isString);
-  const statusLabel = labels.find((label) => label.toLowerCase().startsWith("status:"));
+  const document = new XMLParser({ preserveOrder: true }).parse(fragment) as unknown;
+  const siblings = orderedChildren(document, "root");
+  const statusNode = siblings.find(
+    (node) =>
+      orderedTagName(node) === "b" && /^status\s*:/i.test(orderedText(node).trim())
+  );
+  const statusLabel = statusNode ? orderedText(statusNode).trim() : null;
 
   if (!statusLabel) {
     throw new Error(
@@ -205,9 +205,21 @@ function parseDescription(description: string, serviceName: string) {
     );
   }
 
-  const components = arrayValue(root?.ul)
-    .flatMap((list) => arrayValue(recordValue(list)?.li))
-    .map(textValue)
+  const affectedComponentsLabel = siblings.findIndex(
+    (node) =>
+      orderedTagName(node) === "b" &&
+      orderedText(node).trim().toLowerCase() === "affected components"
+  );
+  const affectedComponentsList = findFollowingAffectedComponentsList(
+    siblings,
+    affectedComponentsLabel
+  );
+  const components = (affectedComponentsList
+    ? orderedChildren(affectedComponentsList, "ul").filter(
+      (node) => orderedTagName(node) === "li"
+    )
+    : [])
+    .map(orderedText)
     .filter(isString)
     .map(parseAffectedComponent)
     .filter((component): component is ParsedAffectedComponent => component !== null);
@@ -216,6 +228,26 @@ function parseDescription(description: string, serviceName: string) {
     status: statusLabel.slice(statusLabel.indexOf(":") + 1).trim(),
     components
   };
+}
+
+function findFollowingAffectedComponentsList(siblings: unknown[], labelIndex: number) {
+  if (labelIndex < 0) {
+    return null;
+  }
+
+  for (const sibling of siblings.slice(labelIndex + 1)) {
+    const tagName = orderedTagName(sibling);
+
+    if (tagName === "ul") {
+      return sibling;
+    }
+
+    if (tagName !== "br" && tagName !== null) {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 function parseAffectedComponent(value: string): ParsedAffectedComponent | null {
@@ -408,14 +440,57 @@ function textValue(value: unknown): string | null {
   return typeof record?.["#text"] === "string" ? record["#text"] : null;
 }
 
+function orderedChildren(value: unknown, tagName: string): unknown[] {
+  const record = recordValue(value);
+  const children = record?.[tagName];
+
+  if (Array.isArray(children)) {
+    return children;
+  }
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  for (const node of value) {
+    const nodeRecord = recordValue(node);
+    const nodeChildren = nodeRecord?.[tagName];
+
+    if (Array.isArray(nodeChildren)) {
+      return nodeChildren;
+    }
+  }
+
+  return [];
+}
+
+function orderedTagName(value: unknown): string | null {
+  const record = recordValue(value);
+
+  if (!record) {
+    return null;
+  }
+
+  return Object.keys(record).find((key) => key !== "#text") ?? null;
+}
+
+function orderedText(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(orderedText).join("");
+  }
+
+  const record = recordValue(value);
+  return record ? Object.values(record).map(orderedText).join("") : "";
+}
+
 function recordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
-}
-
-function arrayValue(value: unknown) {
-  return Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
 }
 
 function isString(value: string | null): value is string {
