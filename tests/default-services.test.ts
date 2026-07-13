@@ -4,8 +4,8 @@ import { ensureDefaultServices } from "@/lib/db/seed-defaults";
 import { defaultMonitoredServices, findDefaultService } from "@/lib/status/default-services";
 
 describe("AI provider defaults", () => {
-  it("defines ten services with the approved AI source filters", () => {
-    expect(defaultMonitoredServices).toHaveLength(10);
+  it("defines eleven services with the approved source filters", () => {
+    expect(defaultMonitoredServices).toHaveLength(11);
     expect(findDefaultService("openai")).toMatchObject({
       name: "OpenAI",
       providerKind: "statuspage",
@@ -24,6 +24,16 @@ describe("AI provider defaults", () => {
       endpoint: "https://www.google.com/appsstatus/dashboard/incidents.json",
       sourceServiceName: "Gemini"
     });
+    expect(findDefaultService("didit")).toMatchObject({
+      name: "Didit",
+      providerKind: "incidentio-rss",
+      endpoint: "https://status.didit.me/feed.rss",
+      sourceComponentNames: [
+        "Core APIs",
+        "Business Console",
+        "Hosted Verification Web App"
+      ]
+    });
   });
 
   it("seeds every default through the existing upsert boundary", async () => {
@@ -34,9 +44,9 @@ describe("AI provider defaults", () => {
 
     await ensureDefaultServices(prisma);
 
-    expect(upsert).toHaveBeenCalledTimes(10);
+    expect(upsert).toHaveBeenCalledTimes(11);
     expect(upsert.mock.calls.map(([input]) => input.where.name)).toEqual(
-      expect.arrayContaining(["OpenAI", "Claude", "Gemini"])
+      expect.arrayContaining(["OpenAI", "Claude", "Gemini", "Didit"])
     );
   });
 });

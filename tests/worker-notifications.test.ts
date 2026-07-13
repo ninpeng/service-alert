@@ -37,6 +37,14 @@ const service = {
   slackEnabled: true
 };
 
+const diditService = {
+  ...service,
+  id: "didit-service",
+  name: "Didit",
+  provider: "didit",
+  endpoint: "https://status.didit.me/feed.rss"
+};
+
 const activeIncident: NormalizedIncident = {
   externalId: "incident-1",
   title: "Provider outage",
@@ -175,7 +183,9 @@ interface StoredNotification extends ExistingNotification {
 function createPrismaDouble(options: {
   existingIncidentIds?: string[];
   existingNotification?: ExistingNotification | null;
+  monitoredService?: typeof service;
 } = {}) {
+  const monitoredService = options.monitoredService ?? service;
   const operations: string[] = [];
   const incidentIds = new Map<string, string>();
   const persistedIncidents = new Map<string, StoredIncident>();
@@ -183,7 +193,7 @@ function createPrismaDouble(options: {
 
   for (const externalId of options.existingIncidentIds ?? []) {
     incidentIds.set(
-      incidentIdentityKey({ serviceId: service.id, externalId }),
+      incidentIdentityKey({ serviceId: monitoredService.id, externalId }),
       `persisted-incident-${nextIncidentId++}`
     );
   }
@@ -239,10 +249,10 @@ function createPrismaDouble(options: {
   if (options.existingNotification) {
     notificationEvents.set(options.existingNotification.dedupeKey, {
       ...options.existingNotification,
-      serviceId: service.id,
+      serviceId: monitoredService.id,
       incidentId: incidentIds.get(
         incidentIdentityKey({
-          serviceId: service.id,
+          serviceId: monitoredService.id,
           externalId: activeIncident.externalId
         })
       ),
@@ -302,8 +312,8 @@ function createPrismaDouble(options: {
       update: workerRunUpdate
     },
     monitoredService: {
-      upsert: vi.fn(async () => service),
-      findMany: vi.fn(async () => [service])
+      upsert: vi.fn(async () => monitoredService),
+      findMany: vi.fn(async () => [monitoredService])
     },
     serviceComponent: {
       upsert: vi.fn()
@@ -645,6 +655,63 @@ describe("runServiceChecks notification orchestration", () => {
     expect(moduleMocks.sendSlackWebhook).not.toHaveBeenCalled();
     expect(db.notificationCreate).not.toHaveBeenCalled();
     expect(db.notificationUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not deliver a second start when a persisted Didit incident changes status and pubDate", async () => {
+    const firstPubDate = new Date("2026-07-13T00:00:00Z");
+    const diditIncident: NormalizedIncident = {
+      ...activeIncident,
+      externalId: "didit-guid-1",
+      startedAt: firstPubDate,
+      updatedAt: firstPubDate
+    };
+    const diditSnapshot: ProviderSnapshot = {
+      ...snapshot,
+      service: {
+        provider: "didit",
+        name: diditService.name,
+        endpoint: diditService.endpoint
+      },
+      incidents: [diditIncident]
+    };
+    const db = createPrismaDouble({ monitoredService: diditService });
+
+    await runCheck(db.prisma, diditSnapshot);
+
+    expect(moduleMocks.sendSlackWebhook).toHaveBeenCalledTimes(1);
+    expect(db.getNotificationEvents()).toMatchObject([
+      { eventType: "incident_started", slackStatus: "sent" }
+    ]);
+
+    const nextPubDate = new Date("2026-07-13T00:20:00Z");
+    const updatedIncident: NormalizedIncident = {
+      ...diditIncident,
+      status: "monitoring",
+      startedAt: nextPubDate,
+      updatedAt: nextPubDate
+    };
+    const updatedSnapshot: ProviderSnapshot = {
+      ...diditSnapshot,
+      checkedAt: new Date("2026-07-13T00:25:00Z"),
+      incidents: [updatedIncident]
+    };
+
+    expect(
+      buildNotificationDedupeKey("didit", updatedIncident)
+    ).not.toBe(buildNotificationDedupeKey("didit", diditIncident));
+
+    db.notificationCreate.mockClear();
+    db.notificationUpdate.mockClear();
+    moduleMocks.buildSlackMessage.mockClear();
+    moduleMocks.sendSlackWebhook.mockClear();
+
+    await runCheck(db.prisma, updatedSnapshot);
+
+    expect(moduleMocks.buildSlackMessage).not.toHaveBeenCalled();
+    expect(moduleMocks.sendSlackWebhook).not.toHaveBeenCalled();
+    expect(db.notificationCreate).not.toHaveBeenCalled();
+    expect(db.notificationUpdate).not.toHaveBeenCalled();
+    expect(db.getNotificationEvents()).toHaveLength(1);
   });
 
   it("handles an empty snapshot without persistence or notification delivery", async () => {

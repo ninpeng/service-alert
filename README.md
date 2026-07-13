@@ -186,6 +186,7 @@ pnpm start
 - OpenAI: `https://status.openai.com/api/v2/summary.json` (`FedRAMP`, `Ads Manager`, `Ads API` 제외)
 - Claude: `https://status.claude.com/api/v2/summary.json` (`Claude for Government` 제외)
 - Gemini: `https://www.google.com/appsstatus/dashboard/incidents.json` (`service_name`이 `Gemini`인 활성 사건만 포함)
+- Didit: `https://status.didit.me/feed.rss` (`Core APIs`, `Business Console`, `Hosted Verification Web App` 포함)
 
 AWS Slack 알림은 다음 리전에 매칭되는 이벤트만 대상으로 합니다.
 

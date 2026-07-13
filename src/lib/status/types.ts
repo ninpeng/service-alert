@@ -8,9 +8,15 @@ export type ProviderId =
   | "figma"
   | "openai"
   | "claude"
-  | "gemini";
+  | "gemini"
+  | "didit";
 
-export type ProviderKind = "statuspage" | "slack-status" | "aws-rss" | "google-workspace";
+export type ProviderKind =
+  | "statuspage"
+  | "slack-status"
+  | "aws-rss"
+  | "google-workspace"
+  | "incidentio-rss";
 
 export type OverallStatus = "none" | "minor" | "major" | "critical" | "unknown";
 
@@ -27,6 +33,7 @@ export interface MonitoredServiceConfig {
   slackEnabled: boolean;
   excludedComponentNames?: readonly string[];
   sourceServiceName?: string;
+  sourceComponentNames?: readonly string[];
 }
 
 export interface NormalizedComponent {

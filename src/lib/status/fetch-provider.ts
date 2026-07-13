@@ -1,6 +1,7 @@
 import { awsNotificationRegions, findDefaultService } from "./default-services";
 import { fetchAwsRss } from "./adapters/aws";
 import { fetchGoogleWorkspaceStatus } from "./adapters/google-workspace";
+import { fetchIncidentIoRss } from "./adapters/incidentio";
 import { fetchSlackCurrentStatus } from "./adapters/slack";
 import { fetchStatuspageSummary } from "./adapters/statuspage";
 import type { MonitoredServiceConfig, ProviderSnapshot } from "./types";
@@ -69,5 +70,26 @@ export async function fetchDefaultProviderSnapshot(
     );
   }
 
-  return fetchAwsRss(service.endpoint, awsNotificationRegions, fetchImpl);
+  if (service.providerKind === "incidentio-rss") {
+    if (!service.sourceComponentNames?.length) {
+      throw new Error("Missing incident.io component config for " + service.name);
+    }
+
+    return fetchIncidentIoRss(
+      service.endpoint,
+      {
+        provider: service.provider,
+        serviceName: service.name,
+        endpoint: service.endpoint,
+        sourceComponentNames: service.sourceComponentNames
+      },
+      fetchImpl
+    );
+  }
+
+  if (service.providerKind === "aws-rss") {
+    return fetchAwsRss(service.endpoint, awsNotificationRegions, fetchImpl);
+  }
+
+  throw new Error(`Unsupported provider kind: ${service.providerKind}`);
 }
