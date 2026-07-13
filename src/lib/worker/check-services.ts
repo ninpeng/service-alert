@@ -260,7 +260,7 @@ async function createNotifications(
     }
 
     const dedupeKey = buildNotificationDedupeKey(snapshot.service.provider, incident);
-    const existing = await prisma.notificationEvent.findUnique({
+    let existing = await prisma.notificationEvent.findUnique({
       where: {
         dedupeKey
       }
@@ -270,15 +270,11 @@ async function createNotifications(
       continue;
     }
 
-    const eventType = getNotificationEventType(incident, {
+    let eventType = getNotificationEventType(incident, {
       isFirstObservation:
         firstObservedIncidentIds.has(incident.externalId) ||
         existing?.eventType === "incident_started"
     });
-
-    if (!shouldSendSlackNotification(incident, eventType)) {
-      continue;
-    }
 
     const persistedIncident = await prisma.incident.findUnique({
       where: {
@@ -288,6 +284,31 @@ async function createNotifications(
         }
       }
     });
+
+    if (!existing && eventType !== "incident_resolved" && persistedIncident) {
+      existing = await prisma.notificationEvent.findFirst({
+        where: {
+          serviceId: service.id,
+          incidentId: persistedIncident.id,
+          eventType: "incident_started",
+          slackStatus: {
+            in: ["failed", "skipped"]
+          }
+        },
+        orderBy: {
+          createdAt: "asc"
+        }
+      });
+
+      if (existing) {
+        eventType = "incident_started";
+      }
+    }
+
+    if (!shouldSendSlackNotification(incident, eventType)) {
+      continue;
+    }
+
     const delivery = await deliverSlackNotification({
       webhookUrl: slackWebhookUrl,
       serviceName: service.name,
