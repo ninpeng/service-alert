@@ -60,4 +60,42 @@ describe("fetchProviderSnapshot", () => {
       })
     ).rejects.toThrow("Missing Google Workspace service filter for Gemini");
   });
+
+  it("dispatches Didit to the incident.io RSS adapter", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        `<?xml version="1.0"?><rss><channel><title>Didit status</title></channel></rss>`,
+        { status: 200 }
+      )
+    );
+
+    const snapshot = await fetchProviderSnapshot(
+      {
+        name: "Didit",
+        provider: "didit",
+        endpoint: "https://status.didit.me/feed.rss"
+      },
+      fetchImpl
+    );
+
+    expect(snapshot.service.provider).toBe("didit");
+    expect(snapshot.components).toMatchObject([
+      { externalId: "didit:core-apis", status: "operational" },
+      { externalId: "didit:business-console", status: "operational" },
+      { externalId: "didit:hosted-verification-web-app", status: "operational" }
+    ]);
+  });
+
+  it("rejects incident.io RSS config without source components", async () => {
+    await expect(
+      fetchDefaultProviderSnapshot({
+        name: "Didit",
+        provider: "didit",
+        providerKind: "incidentio-rss",
+        endpoint: "https://status.didit.me/feed.rss",
+        enabled: true,
+        slackEnabled: true
+      })
+    ).rejects.toThrow("Missing incident.io component config for Didit");
+  });
 });

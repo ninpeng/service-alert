@@ -196,4 +196,38 @@ describe("buildResolvedMissingIncidents", () => {
       }
     ]);
   });
+
+  it("resolves a Didit incident when the RSS feed no longer returns it", () => {
+    const diditSnapshot: ProviderSnapshot = {
+      ...snapshot,
+      service: {
+        provider: "didit",
+        name: "Didit",
+        endpoint: "https://status.didit.me/feed.rss"
+      }
+    };
+    const resolved = buildResolvedMissingIncidents(diditSnapshot, [
+      {
+        externalId: "didit-active",
+        title: "Didit outage",
+        status: "investigating",
+        impact: "major",
+        url: "https://status.didit.me/incidents/didit-active",
+        startedAt: new Date("2026-07-13T00:00:00Z"),
+        updatedAt: new Date("2026-07-13T00:10:00Z"),
+        resolvedAt: null,
+        isMaintenance: false,
+        shouldNotify: true,
+        rawPayload: "{}"
+      }
+    ]);
+
+    expect(resolved).toMatchObject([
+      {
+        externalId: "didit-active",
+        status: "resolved",
+        resolvedAt: checkedAt
+      }
+    ]);
+  });
 });
