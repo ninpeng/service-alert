@@ -12,7 +12,7 @@ import { runServiceChecks } from "@/lib/worker/check-services";
 const moduleMocks = vi.hoisted(() => ({
   fetchProviderSnapshot: vi.fn(),
   buildSlackMessage: vi.fn((input: unknown) => ({ input })),
-  sendSlackWebhook: vi.fn(async (webhookUrl: string, _message: unknown) => {
+  sendSlackWebhook: vi.fn(async (webhookUrl: string) => {
     if (webhookUrl !== "mock://slack-webhook") {
       throw new Error(`Unexpected Slack webhook URL: ${webhookUrl}`);
     }
