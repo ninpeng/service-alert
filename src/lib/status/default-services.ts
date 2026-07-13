@@ -58,6 +58,33 @@ export const defaultMonitoredServices: MonitoredServiceConfig[] = [
     endpoint: "https://status.figma.com/api/v2/summary.json",
     enabled: true,
     slackEnabled: true
+  },
+  {
+    name: "OpenAI",
+    provider: "openai",
+    providerKind: "statuspage",
+    endpoint: "https://status.openai.com/api/v2/summary.json",
+    enabled: true,
+    slackEnabled: true,
+    excludedComponentNames: ["FedRAMP", "Ads Manager", "Ads API"]
+  },
+  {
+    name: "Claude",
+    provider: "claude",
+    providerKind: "statuspage",
+    endpoint: "https://status.claude.com/api/v2/summary.json",
+    enabled: true,
+    slackEnabled: true,
+    excludedComponentNames: ["Claude for Government"]
+  },
+  {
+    name: "Gemini",
+    provider: "gemini",
+    providerKind: "google-workspace",
+    endpoint: "https://www.google.com/appsstatus/dashboard/incidents.json",
+    enabled: true,
+    slackEnabled: true,
+    sourceServiceName: "Gemini"
   }
 ];
 

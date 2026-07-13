@@ -1,6 +1,16 @@
-export type ProviderId = "jira" | "bitbucket" | "slack" | "vercel" | "aws" | "notion" | "figma";
+export type ProviderId =
+  | "jira"
+  | "bitbucket"
+  | "slack"
+  | "vercel"
+  | "aws"
+  | "notion"
+  | "figma"
+  | "openai"
+  | "claude"
+  | "gemini";
 
-export type ProviderKind = "statuspage" | "slack-status" | "aws-rss";
+export type ProviderKind = "statuspage" | "slack-status" | "aws-rss" | "google-workspace";
 
 export type OverallStatus = "none" | "minor" | "major" | "critical" | "unknown";
 
@@ -15,6 +25,8 @@ export interface MonitoredServiceConfig {
   endpoint: string;
   enabled: boolean;
   slackEnabled: boolean;
+  excludedComponentNames?: readonly string[];
+  sourceServiceName?: string;
 }
 
 export interface NormalizedComponent {

@@ -3,6 +3,7 @@
 import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { formatDashboardDateTime } from "../lib/dashboard/date-format";
 
 const refreshIntervalMs = 60_000;
 const manualRefreshIndicatorMs = 500;
@@ -70,7 +71,7 @@ export function RefreshControls({ dataUpdatedAt }: { dataUpdatedAt: string | nul
 
   return (
     <div className="refresh-controls">
-      <span className="timestamp">데이터 갱신 {formatDateTime(dataUpdatedAt)}</span>
+      <span className="timestamp">데이터 갱신 {formatDashboardDateTime(dataUpdatedAt, "없음")}</span>
       <button
         aria-busy={isLoading}
         aria-label="대시보드 데이터 새로고침"
@@ -83,17 +84,4 @@ export function RefreshControls({ dataUpdatedAt }: { dataUpdatedAt: string | nul
       </button>
     </div>
   );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "없음";
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(value));
 }

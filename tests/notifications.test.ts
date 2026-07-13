@@ -35,6 +35,34 @@ describe("getNotificationEventType", () => {
       "incident_resolved"
     );
   });
+
+  it("classifies an already-updated incident as started on first observation", () => {
+    expect(
+      getNotificationEventType(
+        { ...incident, impact: "major" },
+        { isFirstObservation: true }
+      )
+    ).toBe("incident_started");
+    expect(
+      shouldSendSlackNotification(
+        { ...incident, impact: "major" },
+        "incident_started"
+      )
+    ).toBe(true);
+  });
+
+  it("gives resolution precedence over first-observation classification", () => {
+    expect(
+      getNotificationEventType(
+        {
+          ...incident,
+          status: "resolved",
+          resolvedAt: new Date("2026-05-12T01:20:00Z")
+        },
+        { isFirstObservation: true }
+      )
+    ).toBe("incident_resolved");
+  });
 });
 
 describe("shouldSendSlackNotification", () => {

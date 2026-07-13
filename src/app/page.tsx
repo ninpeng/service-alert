@@ -1,7 +1,9 @@
 import {
   Bell,
   CheckCircle2,
+  Clock3,
   ExternalLink,
+  FileWarning,
   RadioTower,
   RefreshCw,
   Server,
@@ -9,6 +11,7 @@ import {
 } from "lucide-react";
 import { RefreshControls } from "./RefreshControls";
 import { getDashboardData } from "../lib/dashboard/data";
+import { formatDashboardDateTime } from "../lib/dashboard/date-format";
 import { isActionableActiveIncident } from "../lib/dashboard/summary";
 import type { DashboardData } from "../lib/dashboard/data";
 
@@ -35,6 +38,7 @@ export default async function DashboardPage() {
           <span>서비스 알림</span>
         </div>
         <nav className="nav-list" aria-label="대시보드 섹션">
+          <a href="#operations">운영</a>
           <a href="#services">서비스</a>
           <a href="#incidents">장애 이력</a>
           <a href="#worker">수집 실행</a>
@@ -81,6 +85,68 @@ export default async function DashboardPage() {
             value={lastRun ? statusLabel(lastRun.status) : "없음"}
             detail={lastRun ? relativeTime(lastRun.startedAt) : "pnpm worker:check 실행 필요"}
           />
+        </section>
+
+        <section className="panel" id="operations">
+          <div className="section-heading">
+            <div>
+              <h2>운영 상태</h2>
+              <p>대시보드, worker, Slack 연동, 최근 stderr 로그를 한 곳에서 확인합니다.</p>
+            </div>
+            <StatusPill status={dashboard.operationalStatus.webServerStatus} />
+          </div>
+          <div className="operation-list">
+            <OperationRow
+              icon={<Server aria-hidden="true" size={18} />}
+              label="웹 서버"
+              value={<StatusPill status={dashboard.operationalStatus.webServerStatus} />}
+              detail="대시보드 응답 중"
+            />
+            <OperationRow
+              icon={<RefreshCw aria-hidden="true" size={18} />}
+              label="Worker"
+              value={
+                dashboard.operationalStatus.lastWorkerRun ? (
+                  <StatusPill status={dashboard.operationalStatus.lastWorkerRun.status} />
+                ) : (
+                  <StatusPill status="unknown" />
+                )
+              }
+              detail={workerRunDetail(dashboard.operationalStatus.lastWorkerRun)}
+            />
+            <OperationRow
+              icon={<Clock3 aria-hidden="true" size={18} />}
+              label="다음 수집"
+              value={formatDateTime(dashboard.operationalStatus.nextWorkerRunAt)}
+              detail={
+                dashboard.operationalStatus.nextWorkerRunAt
+                  ? "launchd 5분 주기 기준"
+                  : "완료된 worker 실행 기록이 필요합니다"
+              }
+            />
+            <OperationRow
+              icon={<Bell aria-hidden="true" size={18} />}
+              label="Slack webhook"
+              value={
+                <StatusPill
+                  status={dashboard.operationalStatus.slackWebhookConfigured ? "webhook_configured" : "webhook_missing"}
+                />
+              }
+              detail={
+                dashboard.operationalStatus.slackWebhookConfigured
+                  ? "값은 화면과 API에 노출하지 않습니다"
+                  : "Slack 발송은 skipped로 기록됩니다"
+              }
+            />
+            <LogRow
+              label="web.err.log"
+              log={dashboard.operationalStatus.logs.web}
+            />
+            <LogRow
+              label="worker.err.log"
+              log={dashboard.operationalStatus.logs.worker}
+            />
+          </div>
         </section>
 
         <section className="panel" id="services">
@@ -192,6 +258,65 @@ export default async function DashboardPage() {
   );
 }
 
+function OperationRow({
+  icon,
+  label,
+  value,
+  detail
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  detail: string;
+}) {
+  return (
+    <article className="operation-row">
+      <div className="operation-main">
+        <span className="operation-icon">{icon}</span>
+        <div>
+          <span className="service-label">{label}</span>
+          <div className="operation-value">{value}</div>
+          <p>{detail}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function LogRow({
+  label,
+  log
+}: {
+  label: string;
+  log: DashboardData["operationalStatus"]["logs"]["web"];
+}) {
+  return (
+    <article className="operation-row log-row">
+      <div className="operation-main">
+        <span className="operation-icon">
+          <FileWarning aria-hidden="true" size={18} />
+        </span>
+        <div>
+          <span className="service-label">{label}</span>
+          <div className="operation-value">
+            <StatusPill status={logStatus(log)} />
+          </div>
+          <p>{logDetail(log)}</p>
+          {log.lastLines.length > 0 ? (
+            <ul className="log-lines" aria-label={`${label} 최근 로그`}>
+              {log.lastLines.map((line, index) => (
+                <li key={`${label}-${index}`}>
+                  <code>{line}</code>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function SummaryMetric({
   href,
   icon,
@@ -282,6 +407,14 @@ function componentSummary(components: DashboardData["services"][number]["compone
 function statusTone(status: string) {
   const normalized = status.toLowerCase();
 
+  if (normalized === "running" || normalized === "webhook_configured") {
+    return "success";
+  }
+
+  if (normalized === "attention" || normalized === "webhook_missing" || normalized === "missing") {
+    return "warning";
+  }
+
   if (
     normalized.includes("operational") ||
     normalized.includes("success") ||
@@ -335,6 +468,7 @@ function statusLabel(status: string) {
     maintenance: "예정 점검",
     major: "주요 장애",
     minor: "일부 장애",
+    missing: "없음",
     monitoring: "모니터링",
     none: "정상",
     ok: "정상",
@@ -342,11 +476,15 @@ function statusLabel(status: string) {
     partial_failure: "일부 실패",
     postmortem: "사후 분석",
     resolved: "복구됨",
+    running: "실행 중",
     scheduled: "예정됨",
     sent: "발송됨",
     skipped: "건너뜀",
     success: "성공",
     under_maintenance: "점검 중",
+    webhook_configured: "설정됨",
+    webhook_missing: "비어 있음",
+    attention: "확인 필요",
     unknown: "알 수 없음",
     verifying: "확인 중"
   };
@@ -390,17 +528,69 @@ function notificationDetailText(notification: DashboardData["notifications"][num
   return notification.errorMessage ?? eventTypeLabel(notification.eventType);
 }
 
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "알 수 없음";
+function workerRunDetail(run: DashboardData["operationalStatus"]["lastWorkerRun"]) {
+  if (!run) {
+    return "worker 실행 기록 없음";
   }
 
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(value));
+  const result = `${relativeTime(run.startedAt)} / ${run.providersChecked}개 확인 / ${run.providersFailed}개 실패`;
+
+  if (!run.errorMessage) {
+    return result;
+  }
+
+  return `${result} / ${formatWorkerError(run.errorMessage)}`;
+}
+
+function formatWorkerError(errorMessage: string) {
+  try {
+    const parsed = JSON.parse(errorMessage) as Array<{ service?: string; message?: string }>;
+    const firstError = parsed[0];
+
+    if (firstError?.service && firstError.message) {
+      return trimText(`${firstError.service}: ${firstError.message}`, 120);
+    }
+  } catch {
+    // Fall back to the original worker message.
+  }
+
+  return trimText(errorMessage, 120);
+}
+
+function logStatus(log: DashboardData["operationalStatus"]["logs"]["web"]) {
+  if (log.errorMessage || log.hasRecentEntries) {
+    return "attention";
+  }
+
+  return log.exists ? "success" : "missing";
+}
+
+function logDetail(log: DashboardData["operationalStatus"]["logs"]["web"]) {
+  if (log.errorMessage) {
+    return trimText(log.errorMessage, 120);
+  }
+
+  if (!log.exists) {
+    return "로그 파일 없음";
+  }
+
+  if (log.hasRecentEntries) {
+    return `${log.lastLines.length}개 최근 로그`;
+  }
+
+  return "최근 에러 없음";
+}
+
+function trimText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength - 3)}...`;
+}
+
+function formatDateTime(value: string | null) {
+  return formatDashboardDateTime(value);
 }
 
 function relativeTime(value: string) {

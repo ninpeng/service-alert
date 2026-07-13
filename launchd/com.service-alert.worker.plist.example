@@ -8,13 +8,15 @@
   <string>/path/to/service-alert</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/opt/homebrew/bin/pnpm</string>
+    <!-- Use an absolute Node 22 path. launchd does not read fnm/nvm shell init files. -->
+    <string>/path/to/node-v22/bin/node</string>
+    <string>/path/to/node-v22/lib/node_modules/corepack/dist/pnpm.js</string>
     <string>worker:check</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <string>/path/to/node-v22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>DATABASE_URL</key>
     <string>file:./dev.db</string>
     <key>SLACK_WEBHOOK_URL</key>

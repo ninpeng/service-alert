@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildResolvedMissingIncidents } from "@/lib/worker/check-services";
-import type { ProviderSnapshot } from "@/lib/status/types";
+import {
+  buildResolvedMissingIncidents,
+  getFirstObservedIncidentIds
+} from "@/lib/worker/check-services";
+import type { NormalizedIncident, ProviderSnapshot } from "@/lib/status/types";
 
 const checkedAt = new Date("2026-05-14T10:00:00Z");
 
@@ -15,6 +18,47 @@ const snapshot: ProviderSnapshot = {
   components: [],
   incidents: []
 };
+
+const activeIncident: NormalizedIncident = {
+  externalId: "base",
+  title: "Provider outage",
+  status: "investigating",
+  impact: "major",
+  url: null,
+  startedAt: new Date("2026-07-13T00:00:00Z"),
+  updatedAt: new Date("2026-07-13T00:10:00Z"),
+  resolvedAt: null,
+  isMaintenance: false,
+  shouldNotify: true,
+  raw: {}
+};
+
+describe("getFirstObservedIncidentIds", () => {
+  it("finds incident IDs that are new to the local database", () => {
+    expect(
+      getFirstObservedIncidentIds(
+        [
+          { ...activeIncident, externalId: "existing" },
+          { ...activeIncident, externalId: "new" }
+        ],
+        ["existing"]
+      )
+    ).toEqual(new Set(["new"]));
+  });
+
+  it("excludes maintenance and non-notifying incidents", () => {
+    expect(
+      getFirstObservedIncidentIds(
+        [
+          { ...activeIncident, externalId: "eligible" },
+          { ...activeIncident, externalId: "maintenance", isMaintenance: true },
+          { ...activeIncident, externalId: "silent", shouldNotify: false }
+        ],
+        []
+      )
+    ).toEqual(new Set(["eligible"]));
+  });
+});
 
 describe("buildResolvedMissingIncidents", () => {
   it("marks previously active incidents as resolved when the provider no longer returns them", () => {
@@ -117,5 +161,39 @@ describe("buildResolvedMissingIncidents", () => {
         ]
       )
     ).toEqual([]);
+  });
+
+  it("resolves a Gemini incident when it leaves the active Workspace feed", () => {
+    const geminiSnapshot: ProviderSnapshot = {
+      ...snapshot,
+      service: {
+        provider: "gemini",
+        name: "Gemini",
+        endpoint: "https://www.google.com/appsstatus/dashboard/incidents.json"
+      }
+    };
+    const resolved = buildResolvedMissingIncidents(geminiSnapshot, [
+      {
+        externalId: "gemini-active",
+        title: "Gemini outage",
+        status: "SERVICE_DISRUPTION",
+        impact: "major",
+        url: "https://www.google.com/appsstatus/dashboard/incidents/gemini-active",
+        startedAt: new Date("2026-07-13T00:00:00Z"),
+        updatedAt: new Date("2026-07-13T00:10:00Z"),
+        resolvedAt: null,
+        isMaintenance: false,
+        shouldNotify: true,
+        rawPayload: "{}"
+      }
+    ]);
+
+    expect(resolved).toMatchObject([
+      {
+        externalId: "gemini-active",
+        status: "resolved",
+        resolvedAt: checkedAt
+      }
+    ]);
   });
 });

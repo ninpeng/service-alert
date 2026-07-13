@@ -1,15 +1,26 @@
 import type { NormalizedIncident, NotificationEventType, ProviderId } from "./types";
 
+interface NotificationClassificationOptions {
+  isFirstObservation?: boolean;
+}
+
 export function buildNotificationDedupeKey(provider: ProviderId, incident: NormalizedIncident) {
   const updatedAt = incident.updatedAt ?? incident.startedAt ?? new Date(0);
   return [provider, incident.externalId, incident.status, updatedAt.toISOString()].join(":");
 }
 
-export function getNotificationEventType(incident: NormalizedIncident): NotificationEventType {
+export function getNotificationEventType(
+  incident: NormalizedIncident,
+  options: NotificationClassificationOptions = {}
+): NotificationEventType {
   const status = incident.status.toLowerCase();
 
   if (status.includes("resolved") || status.includes("complete")) {
     return "incident_resolved";
+  }
+
+  if (options.isFirstObservation) {
+    return "incident_started";
   }
 
   if (
@@ -23,12 +34,15 @@ export function getNotificationEventType(incident: NormalizedIncident): Notifica
   return "incident_update";
 }
 
-export function shouldSendSlackNotification(incident: NormalizedIncident) {
+export function shouldSendSlackNotification(
+  incident: NormalizedIncident,
+  eventType = getNotificationEventType(incident)
+) {
   return (
     incident.shouldNotify &&
     !incident.isMaintenance &&
     isMajorOrCriticalImpact(incident.impact) &&
-    getNotificationEventType(incident) !== "incident_update"
+    eventType !== "incident_update"
   );
 }
 
