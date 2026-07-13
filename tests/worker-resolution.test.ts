@@ -118,4 +118,38 @@ describe("buildResolvedMissingIncidents", () => {
       )
     ).toEqual([]);
   });
+
+  it("resolves a Gemini incident when it leaves the active Workspace feed", () => {
+    const geminiSnapshot: ProviderSnapshot = {
+      ...snapshot,
+      service: {
+        provider: "gemini",
+        name: "Gemini",
+        endpoint: "https://www.google.com/appsstatus/dashboard/incidents.json"
+      }
+    };
+    const resolved = buildResolvedMissingIncidents(geminiSnapshot, [
+      {
+        externalId: "gemini-active",
+        title: "Gemini outage",
+        status: "SERVICE_DISRUPTION",
+        impact: "major",
+        url: "https://www.google.com/appsstatus/dashboard/incidents/gemini-active",
+        startedAt: new Date("2026-07-13T00:00:00Z"),
+        updatedAt: new Date("2026-07-13T00:10:00Z"),
+        resolvedAt: null,
+        isMaintenance: false,
+        shouldNotify: true,
+        rawPayload: "{}"
+      }
+    ]);
+
+    expect(resolved).toMatchObject([
+      {
+        externalId: "gemini-active",
+        status: "resolved",
+        resolvedAt: checkedAt
+      }
+    ]);
+  });
 });
