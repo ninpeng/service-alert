@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseGoogleWorkspaceStatus } from "@/lib/status/adapters/google-workspace";
+import {
+  fetchGoogleWorkspaceStatus,
+  parseGoogleWorkspaceStatus
+} from "@/lib/status/adapters/google-workspace";
 
 const context = {
   provider: "gemini" as const,
@@ -92,5 +95,49 @@ describe("parseGoogleWorkspaceStatus", () => {
     expect(() => parseGoogleWorkspaceStatus({}, context)).toThrow(
       "Invalid Google Workspace response for Gemini: expected an array"
     );
+  });
+
+  it("rejects non-OK responses with the provider-specific error", async () => {
+    let requestedEndpoint = "";
+    let requestedAccept = "";
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requestedEndpoint = String(input);
+      requestedAccept = new Headers(init?.headers).get("accept") ?? "";
+      return new Response(null, {
+        status: 503,
+        statusText: "Service Unavailable"
+      });
+    };
+
+    await expect(fetchGoogleWorkspaceStatus(context.endpoint, context, fetchImpl)).rejects.toThrow(
+      "Google Workspace request failed for Gemini: 503 Service Unavailable"
+    );
+    expect(requestedEndpoint).toBe(context.endpoint);
+    expect(requestedAccept).toBe("application/json");
+  });
+
+  it("passes successful JSON responses through the Gemini parser", async () => {
+    const payload = [
+      {
+        id: "gemini-fetch",
+        service_name: "Gemini",
+        end: null,
+        severity: "low",
+        most_recent_update: { status: "SERVICE_INFORMATION" }
+      }
+    ];
+    const fetchImpl: typeof fetch = async () =>
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+
+    const snapshot = await fetchGoogleWorkspaceStatus(context.endpoint, context, fetchImpl);
+
+    expect(snapshot.service).toMatchObject({ provider: "gemini", name: "Gemini" });
+    expect(snapshot.overallStatus).toBe("minor");
+    expect(snapshot.incidents).toMatchObject([
+      { externalId: "gemini-fetch", status: "SERVICE_INFORMATION", impact: "minor" }
+    ]);
   });
 });
