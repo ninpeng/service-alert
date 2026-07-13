@@ -6,6 +6,7 @@ import type {
   ProviderSnapshot,
   SlackDeliveryStatus
 } from "@/lib/status/types";
+import { buildNotificationDedupeKey } from "@/lib/status/notifications";
 import { runServiceChecks } from "@/lib/worker/check-services";
 
 const moduleMocks = vi.hoisted(() => ({
@@ -61,6 +62,10 @@ const snapshot: ProviderSnapshot = {
   components: [],
   incidents: [activeIncident]
 };
+const activeIncidentDedupeKey = buildNotificationDedupeKey(
+  snapshot.service.provider,
+  activeIncident
+);
 
 const forbiddenFetch = vi.fn(() => {
   throw new Error("Unexpected network request");
@@ -68,6 +73,7 @@ const forbiddenFetch = vi.fn(() => {
 
 interface ExistingNotification {
   id: string;
+  dedupeKey: string;
   eventType: NotificationEventType;
   slackStatus: SlackDeliveryStatus;
 }
@@ -81,10 +87,30 @@ interface IncidentFindManyArgs {
 }
 
 interface IncidentUpsertArgs {
+  where: {
+    serviceId_externalId: {
+      serviceId: string;
+      externalId: string;
+    };
+  };
   create: {
+    serviceId: string;
     externalId: string;
     [key: string]: unknown;
   };
+}
+
+interface IncidentFindUniqueArgs {
+  where: {
+    serviceId_externalId: {
+      serviceId: string;
+      externalId: string;
+    };
+  };
+}
+
+interface NotificationFindUniqueArgs {
+  where: { dedupeKey: string };
 }
 
 interface NotificationWriteArgs {
@@ -102,6 +128,10 @@ function createPrismaDouble(options: {
   existingNotification?: ExistingNotification | null;
 } = {}) {
   const operations: string[] = [];
+  const persistedIncidents = new Map<
+    string,
+    { id: string; serviceId: string; externalId: string }
+  >();
   const incidentFindMany = vi.fn(async (args: IncidentFindManyArgs) => {
     if (args.select?.externalId) {
       operations.push("query-existing-incident-ids");
@@ -112,14 +142,42 @@ function createPrismaDouble(options: {
     return [];
   });
   const incidentUpsert = vi.fn(async (args: IncidentUpsertArgs) => {
-    operations.push(`persist-incident:${args.create.externalId}`);
-    return {
+    const identity = args.where.serviceId_externalId;
+    if (
+      args.create.serviceId !== identity.serviceId ||
+      args.create.externalId !== identity.externalId
+    ) {
+      throw new Error("Incident upsert identity does not match its create payload");
+    }
+
+    const persisted = {
       id: "persisted-incident-1",
+      serviceId: identity.serviceId,
+      externalId: identity.externalId
+    };
+    persistedIncidents.set(incidentIdentityKey(identity), persisted);
+    operations.push(`persist-incident:${identity.externalId}`);
+    return {
+      ...persisted,
       ...args.create
     };
   });
-  const incidentFindUnique = vi.fn(async () => ({ id: "persisted-incident-1" }));
-  const notificationFindUnique = vi.fn(async () => options.existingNotification ?? null);
+  const incidentFindUnique = vi.fn(async (args: IncidentFindUniqueArgs) =>
+    persistedIncidents.get(incidentIdentityKey(args.where.serviceId_externalId)) ?? null
+  );
+  const notificationFindUnique = vi.fn(async (args: NotificationFindUniqueArgs) => {
+    if (!options.existingNotification) {
+      return null;
+    }
+
+    if (args.where.dedupeKey !== options.existingNotification.dedupeKey) {
+      throw new Error(
+        `Unexpected notification dedupe key: ${args.where.dedupeKey}`
+      );
+    }
+
+    return options.existingNotification;
+  });
   const notificationCreate = vi.fn(async (args: NotificationWriteArgs) => {
     operations.push("create-notification");
     return { id: "notification-1", ...args.data };
@@ -163,10 +221,15 @@ function createPrismaDouble(options: {
     incidentFindMany,
     incidentUpsert,
     incidentFindUnique,
+    notificationFindUnique,
     notificationCreate,
     notificationUpdate,
     workerRunUpdate
   };
+}
+
+function incidentIdentityKey(identity: { serviceId: string; externalId: string }) {
+  return `${identity.serviceId}:${identity.externalId}`;
 }
 
 async function runCheck(prisma: PrismaClient, providerSnapshot: ProviderSnapshot = snapshot) {
@@ -220,6 +283,14 @@ describe("runServiceChecks notification orchestration", () => {
       "mock://slack-webhook",
       expect.anything()
     );
+    expect(db.incidentFindUnique).toHaveBeenCalledWith({
+      where: {
+        serviceId_externalId: {
+          serviceId: service.id,
+          externalId: activeIncident.externalId
+        }
+      }
+    });
     expect(db.notificationCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         serviceId: service.id,
@@ -237,6 +308,7 @@ describe("runServiceChecks notification orchestration", () => {
         existingIncidentIds: [activeIncident.externalId],
         existingNotification: {
           id: "existing-notification-1",
+          dedupeKey: activeIncidentDedupeKey,
           eventType: "incident_started",
           slackStatus
         }
@@ -251,6 +323,17 @@ describe("runServiceChecks notification orchestration", () => {
         "mock://slack-webhook",
         expect.anything()
       );
+      expect(db.notificationFindUnique).toHaveBeenCalledWith({
+        where: { dedupeKey: activeIncidentDedupeKey }
+      });
+      expect(db.incidentFindUnique).toHaveBeenCalledWith({
+        where: {
+          serviceId_externalId: {
+            serviceId: service.id,
+            externalId: activeIncident.externalId
+          }
+        }
+      });
       expect(db.notificationUpdate).toHaveBeenCalledWith({
         where: { id: "existing-notification-1" },
         data: expect.objectContaining({
@@ -268,6 +351,7 @@ describe("runServiceChecks notification orchestration", () => {
       existingIncidentIds: [activeIncident.externalId],
       existingNotification: {
         id: "existing-notification-1",
+        dedupeKey: activeIncidentDedupeKey,
         eventType: "incident_started",
         slackStatus: "sent"
       }
@@ -280,6 +364,9 @@ describe("runServiceChecks notification orchestration", () => {
         create: expect.objectContaining({ externalId: activeIncident.externalId })
       })
     );
+    expect(db.notificationFindUnique).toHaveBeenCalledWith({
+      where: { dedupeKey: activeIncidentDedupeKey }
+    });
     expect(moduleMocks.buildSlackMessage).not.toHaveBeenCalled();
     expect(moduleMocks.sendSlackWebhook).not.toHaveBeenCalled();
     expect(db.incidentFindUnique).not.toHaveBeenCalled();
