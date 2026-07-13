@@ -85,6 +85,19 @@ export const defaultMonitoredServices: MonitoredServiceConfig[] = [
     enabled: true,
     slackEnabled: true,
     sourceServiceName: "Gemini"
+  },
+  {
+    name: "Didit",
+    provider: "didit",
+    providerKind: "incidentio-rss",
+    endpoint: "https://status.didit.me/feed.rss",
+    enabled: true,
+    slackEnabled: true,
+    sourceComponentNames: [
+      "Core APIs",
+      "Business Console",
+      "Hosted Verification Web App"
+    ]
   }
 ];
 
