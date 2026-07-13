@@ -118,8 +118,9 @@ Unknown or malformed severity values produce a `null` incident impact and `unkno
 4. Each adapter returns the existing `ProviderSnapshot` shape.
 5. Existing persistence upserts components and active incidents.
 6. Existing missing-incident handling records recovery when an active incident disappears.
-7. Existing notification deduplication sends each incident start, update, and recovery at most once per dedupe key.
-8. The existing dashboard renders the three additional service cards without a new UI path.
+7. The worker identifies incidents that are new to the local database so their first observation is classified as `incident_started`, even when the provider has already published later updates.
+8. Existing notification deduplication sends each eligible incident start and recovery at most once per dedupe key. Intermediate incident updates remain persisted but are not Slack-sent under the current notification policy.
+9. The existing dashboard renders the three additional service cards without a new UI path.
 
 ## Failure Behavior
 
@@ -128,7 +129,7 @@ Unknown or malformed severity values produce a `null` incident impact and `unkno
 - A failed provider keeps its last successfully persisted data.
 - Fetch and parse failures include the service name in the error reported through `WorkerRun.errorMessage`.
 - No endpoint requires an API key, login, or additional secret.
-- If an incident is already active when the feature is deployed, its initial observation produces one normal incident-start notification.
+- If an incident is already active when the feature is deployed, its initial database observation produces one normal incident-start notification even when its source `updatedAt` differs from `startedAt`.
 
 ## Testing
 
@@ -144,6 +145,7 @@ Add focused tests for:
 - Gemini active and resolved incident selection
 - Gemini field, severity, status, date, and URL normalization
 - Malformed Google Workspace payload errors
+- First-observation notification classification for an already-updated active incident
 - Worker persistence, notification deduplication, and missing-incident recovery for a new provider
 
 Run the repository verification suite after implementation:
@@ -163,5 +165,5 @@ pnpm build
 - FedRAMP, OpenAI advertising products, and Claude for Government are absent and cannot affect overall status or Slack notifications.
 - Gemini incidents unrelated to the Gemini web and app service are ignored.
 - Historical resolved Gemini incidents do not generate first-run notifications.
-- Active incident, update, and recovery notifications continue to use the existing dedupe behavior.
+- Eligible active-incident start and recovery notifications use the existing dedupe behavior; intermediate updates remain persisted without Slack delivery.
 - Existing seven providers retain their current parsing and notification behavior.
