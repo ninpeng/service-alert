@@ -50,6 +50,19 @@ describe("getNotificationEventType", () => {
       )
     ).toBe(true);
   });
+
+  it("gives resolution precedence over first-observation classification", () => {
+    expect(
+      getNotificationEventType(
+        {
+          ...incident,
+          status: "resolved",
+          resolvedAt: new Date("2026-05-12T01:20:00Z")
+        },
+        { isFirstObservation: true }
+      )
+    ).toBe("incident_resolved");
+  });
 });
 
 describe("shouldSendSlackNotification", () => {

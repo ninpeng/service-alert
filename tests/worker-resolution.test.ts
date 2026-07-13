@@ -45,6 +45,19 @@ describe("getFirstObservedIncidentIds", () => {
       )
     ).toEqual(new Set(["new"]));
   });
+
+  it("excludes maintenance and non-notifying incidents", () => {
+    expect(
+      getFirstObservedIncidentIds(
+        [
+          { ...activeIncident, externalId: "eligible" },
+          { ...activeIncident, externalId: "maintenance", isMaintenance: true },
+          { ...activeIncident, externalId: "silent", shouldNotify: false }
+        ],
+        []
+      )
+    ).toEqual(new Set(["eligible"]));
+  });
 });
 
 describe("buildResolvedMissingIncidents", () => {
