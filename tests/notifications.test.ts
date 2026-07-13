@@ -35,6 +35,21 @@ describe("getNotificationEventType", () => {
       "incident_resolved"
     );
   });
+
+  it("classifies an already-updated incident as started on first observation", () => {
+    expect(
+      getNotificationEventType(
+        { ...incident, impact: "major" },
+        { isFirstObservation: true }
+      )
+    ).toBe("incident_started");
+    expect(
+      shouldSendSlackNotification(
+        { ...incident, impact: "major" },
+        "incident_started"
+      )
+    ).toBe(true);
+  });
 });
 
 describe("shouldSendSlackNotification", () => {

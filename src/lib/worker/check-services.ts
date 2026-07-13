@@ -44,6 +44,21 @@ export async function runServiceChecks(options: RunServiceChecksOptions) {
   for (const service of services) {
     try {
       const snapshot = await fetchProviderSnapshot(service, fetchImpl);
+      const existingIncidents = await options.prisma.incident.findMany({
+        where: {
+          serviceId: service.id,
+          externalId: {
+            in: snapshot.incidents.map((incident) => incident.externalId)
+          }
+        },
+        select: {
+          externalId: true
+        }
+      });
+      const firstObservedIncidentIds = getFirstObservedIncidentIds(
+        snapshot.incidents,
+        existingIncidents.map((incident) => incident.externalId)
+      );
       await persistProviderSnapshot(options.prisma, service.id, snapshot);
       const resolvedIncidents = await resolveMissingIncidents(options.prisma, service.id, snapshot);
       await createNotifications(
@@ -53,7 +68,8 @@ export async function runServiceChecks(options: RunServiceChecksOptions) {
           ...snapshot,
           incidents: [...snapshot.incidents, ...resolvedIncidents]
         },
-        options.slackWebhookUrl
+        options.slackWebhookUrl,
+        firstObservedIncidentIds
       );
       providersChecked += 1;
     } catch (error) {
@@ -78,6 +94,19 @@ export async function runServiceChecks(options: RunServiceChecksOptions) {
       errorMessage: failures.length > 0 ? JSON.stringify(failures) : null
     }
   });
+}
+
+export function getFirstObservedIncidentIds(
+  incidents: NormalizedIncident[],
+  existingIncidentIds: Iterable<string>
+) {
+  const existing = new Set(existingIncidentIds);
+  return new Set(
+    incidents
+      .filter((incident) => !incident.isMaintenance && incident.shouldNotify)
+      .filter((incident) => !existing.has(incident.externalId))
+      .map((incident) => incident.externalId)
+  );
 }
 
 async function persistProviderSnapshot(prisma: PrismaClient, serviceId: string, snapshot: ProviderSnapshot) {
@@ -222,10 +251,11 @@ async function createNotifications(
   prisma: PrismaClient,
   service: { id: string; name: string; provider: string; slackEnabled: boolean },
   snapshot: ProviderSnapshot,
-  slackWebhookUrl: string | undefined
+  slackWebhookUrl: string | undefined,
+  firstObservedIncidentIds: ReadonlySet<string>
 ) {
   for (const incident of snapshot.incidents) {
-    if (!service.slackEnabled || !shouldSendSlackNotification(incident)) {
+    if (!service.slackEnabled) {
       continue;
     }
 
@@ -240,6 +270,16 @@ async function createNotifications(
       continue;
     }
 
+    const eventType = getNotificationEventType(incident, {
+      isFirstObservation:
+        firstObservedIncidentIds.has(incident.externalId) ||
+        existing?.eventType === "incident_started"
+    });
+
+    if (!shouldSendSlackNotification(incident, eventType)) {
+      continue;
+    }
+
     const persistedIncident = await prisma.incident.findUnique({
       where: {
         serviceId_externalId: {
@@ -248,7 +288,6 @@ async function createNotifications(
         }
       }
     });
-    const eventType = getNotificationEventType(incident);
     const delivery = await deliverSlackNotification({
       webhookUrl: slackWebhookUrl,
       serviceName: service.name,

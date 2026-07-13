@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildResolvedMissingIncidents } from "@/lib/worker/check-services";
-import type { ProviderSnapshot } from "@/lib/status/types";
+import {
+  buildResolvedMissingIncidents,
+  getFirstObservedIncidentIds
+} from "@/lib/worker/check-services";
+import type { NormalizedIncident, ProviderSnapshot } from "@/lib/status/types";
 
 const checkedAt = new Date("2026-05-14T10:00:00Z");
 
@@ -15,6 +18,34 @@ const snapshot: ProviderSnapshot = {
   components: [],
   incidents: []
 };
+
+const activeIncident: NormalizedIncident = {
+  externalId: "base",
+  title: "Provider outage",
+  status: "investigating",
+  impact: "major",
+  url: null,
+  startedAt: new Date("2026-07-13T00:00:00Z"),
+  updatedAt: new Date("2026-07-13T00:10:00Z"),
+  resolvedAt: null,
+  isMaintenance: false,
+  shouldNotify: true,
+  raw: {}
+};
+
+describe("getFirstObservedIncidentIds", () => {
+  it("finds incident IDs that are new to the local database", () => {
+    expect(
+      getFirstObservedIncidentIds(
+        [
+          { ...activeIncident, externalId: "existing" },
+          { ...activeIncident, externalId: "new" }
+        ],
+        ["existing"]
+      )
+    ).toEqual(new Set(["new"]));
+  });
+});
 
 describe("buildResolvedMissingIncidents", () => {
   it("marks previously active incidents as resolved when the provider no longer returns them", () => {
