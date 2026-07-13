@@ -135,7 +135,7 @@ function summarizeFilteredStatus(components: NormalizedComponent[], incidents: N
   const candidates: OverallStatus[] = [
     ...components.map((component) => componentStatus(component.status)),
     ...incidents
-      .filter((incident) => !incident.isMaintenance)
+      .filter((incident) => !incident.isMaintenance && incident.resolvedAt === null)
       .map((incident) => parseOverallStatus(incident.impact ?? undefined))
   ];
 

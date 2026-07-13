@@ -116,4 +116,31 @@ describe("parseStatuspageSummary", () => {
     expect(snapshot.incidents.map((incident) => incident.externalId)).toEqual(["global-incident"]);
     expect(snapshot.overallStatus).toBe("minor");
   });
+
+  it("ignores resolved incidents when recalculating filtered status", () => {
+    const snapshot = parseStatuspageSummary(
+      {
+        components: [{ id: "chatgpt", name: "ChatGPT", status: "operational" }],
+        incidents: [
+          {
+            id: "resolved-incident",
+            name: "Resolved outage",
+            status: "resolved",
+            impact: "critical",
+            resolved_at: "2026-05-12T02:00:00Z",
+            components: [{ id: "chatgpt", name: "ChatGPT" }]
+          }
+        ],
+        status: { indicator: "critical" }
+      },
+      {
+        provider: "openai",
+        serviceName: "OpenAI",
+        endpoint: "https://status.openai.com/api/v2/summary.json",
+        excludedComponentNames: ["FedRAMP"]
+      }
+    );
+
+    expect(snapshot.overallStatus).toBe("none");
+  });
 });
