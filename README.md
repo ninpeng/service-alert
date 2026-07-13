@@ -1,6 +1,6 @@
 # Service Alert
 
-JIRA, Bitbucket, Slack, Vercel, AWS, Notion, Figma의 공식 상태 소스를 주기적으로 수집하는 로컬 운영툴입니다.
+JIRA, Bitbucket, Slack, Vercel, AWS, Notion, Figma, OpenAI, Claude, Gemini의 공식 상태 소스를 주기적으로 수집하는 로컬 운영툴입니다.
 
 Next.js 대시보드에서 현재 서비스 상태, 최근 incident, Slack 발송 이력, worker 실행 결과를 확인합니다. macOS에서는 `launchd`로 웹 서버와 worker를 자동 실행할 수 있습니다.
 
@@ -183,6 +183,9 @@ pnpm start
 - AWS: `https://status.aws.amazon.com/rss/all.rss`
 - Notion: `https://www.notion-status.com/api/v2/summary.json`
 - Figma: `https://status.figma.com/api/v2/summary.json`
+- OpenAI: `https://status.openai.com/api/v2/summary.json` (`FedRAMP`, `Ads Manager`, `Ads API` 제외)
+- Claude: `https://status.claude.com/api/v2/summary.json` (`Claude for Government` 제외)
+- Gemini: `https://www.google.com/appsstatus/dashboard/incidents.json` (`service_name`이 `Gemini`인 활성 사건만 포함)
 
 AWS Slack 알림은 다음 리전에 매칭되는 이벤트만 대상으로 합니다.
 

@@ -206,7 +206,7 @@ Slack 설정을 바꿀 때 실제 운영 채널에 잘못 보내지 않도록 �
 
 기대 효과:
 
-- GitHub, Cloudflare, OpenAI 같은 새 provider를 붙일 때 작업량이 줄어듭니다.
+- GitHub, Cloudflare 같은 새 provider를 붙일 때 작업량이 줄어듭니다.
 - 파서 변경 시 기존 provider 회귀를 막기 쉽습니다.
 
 ## 15순위: 보안과 민감 정보 보호
