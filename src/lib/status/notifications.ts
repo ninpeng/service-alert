@@ -19,8 +19,8 @@ export function getNotificationEventType(
     return "incident_resolved";
   }
 
-  if (options.isFirstObservation) {
-    return "incident_started";
+  if (options.isFirstObservation !== undefined) {
+    return options.isFirstObservation ? "incident_started" : "incident_update";
   }
 
   if (

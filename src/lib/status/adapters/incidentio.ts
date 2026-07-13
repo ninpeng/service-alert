@@ -34,7 +34,7 @@ export function parseIncidentIoRss(
       : [];
   const activeItems = sourceItems
     .map((item) => parseFeedItem(item, context))
-    .filter((item) => !terminalStatuses.has(item.status));
+    .filter((item): item is ParsedFeedItem => item !== null);
   const components = buildComponents(activeItems, context);
   const incidents = activeItems.map(normalizeIncident);
   const overallStatus = activeItems
@@ -140,7 +140,7 @@ const overallRanks: Record<OverallStatus, number> = {
 function parseFeedItem(
   item: IncidentIoRssItem,
   context: IncidentIoRssContext
-): ParsedFeedItem {
+): ParsedFeedItem | null {
   const url = textValue(item.link);
   const externalId = textValue(item.guid) ?? url;
 
@@ -158,18 +158,17 @@ function parseFeedItem(
     );
   }
 
-  const details = parseDescription(description, context.serviceName);
-  const status = normalizeToken(details.status);
-  const monitoredComponents = details.components.filter((component) =>
+  const status = extractLifecycleStatus(description, context.serviceName);
+
+  if (terminalStatuses.has(status)) {
+    return null;
+  }
+
+  const components = parseAffectedComponents(description, context.serviceName);
+  const monitoredComponents = components.filter((component) =>
     context.sourceComponentNames.includes(component.name)
   );
-  const isInScope = details.components.length === 0 || monitoredComponents.length > 0;
-
-  if (!status) {
-    throw new Error(
-      `Invalid incident.io RSS for ${context.serviceName}: missing item lifecycle status`
-    );
-  }
+  const isInScope = components.length === 0 || monitoredComponents.length > 0;
 
   return {
     source: item,
@@ -181,30 +180,32 @@ function parseFeedItem(
     occurredAt: parseOptionalDate(item.pubDate),
     isMaintenance:
       Boolean(url?.includes("/maintenance/")) || status.startsWith("maintenance_"),
-    components: details.components,
+    components,
     monitoredComponents,
     isInScope
   };
 }
 
-function parseDescription(description: string, serviceName: string) {
-  const fragment = `<root>${escapeBareAmpersands(description)}</root>`;
-  validateXml(fragment, `Invalid incident.io RSS for ${serviceName}`);
+function extractLifecycleStatus(description: string, serviceName: string) {
+  const status = /<b\b[^>]*>\s*Status\s*:\s*([^<]+?)\s*<\/b\s*>/i
+    .exec(description)?.[1]
+    ?.trim();
 
-  const document = new XMLParser({ preserveOrder: true }).parse(fragment) as unknown;
-  const siblings = orderedChildren(document, "root");
-  const statusNode = siblings.find(
-    (node) =>
-      orderedTagName(node) === "b" && /^status\s*:/i.test(orderedText(node).trim())
-  );
-  const statusLabel = statusNode ? orderedText(statusNode).trim() : null;
-
-  if (!statusLabel) {
+  if (!status) {
     throw new Error(
       `Invalid incident.io RSS for ${serviceName}: missing item lifecycle status`
     );
   }
 
+  return normalizeToken(status);
+}
+
+function parseAffectedComponents(description: string, serviceName: string) {
+  const fragment = `<root>${escapeBareAmpersands(description)}</root>`;
+  validateXml(fragment, `Invalid incident.io RSS for ${serviceName}`);
+
+  const document = new XMLParser({ preserveOrder: true }).parse(fragment) as unknown;
+  const siblings = orderedChildren(document, "root");
   const affectedComponentsLabel = siblings.findIndex(
     (node) =>
       orderedTagName(node) === "b" &&
@@ -224,10 +225,7 @@ function parseDescription(description: string, serviceName: string) {
     .map(parseAffectedComponent)
     .filter((component): component is ParsedAffectedComponent => component !== null);
 
-  return {
-    status: statusLabel.slice(statusLabel.indexOf(":") + 1).trim(),
-    components
-  };
+  return components;
 }
 
 function findFollowingAffectedComponentsList(siblings: unknown[], labelIndex: number) {

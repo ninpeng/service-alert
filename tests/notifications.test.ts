@@ -51,6 +51,19 @@ describe("getNotificationEventType", () => {
     ).toBe(true);
   });
 
+  it("classifies an explicitly existing incident as an update before the timestamp heuristic", () => {
+    const equalTimestampIncident = {
+      ...incident,
+      startedAt: new Date("2026-05-12T01:10:00Z"),
+      updatedAt: new Date("2026-05-12T01:10:00Z")
+    };
+
+    expect(
+      getNotificationEventType(equalTimestampIncident, { isFirstObservation: false })
+    ).toBe("incident_update");
+    expect(getNotificationEventType(equalTimestampIncident)).toBe("incident_started");
+  });
+
   it("gives resolution precedence over first-observation classification", () => {
     expect(
       getNotificationEventType(

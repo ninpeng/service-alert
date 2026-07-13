@@ -78,6 +78,45 @@ describe("parseIncidentIoRss", () => {
     ]);
   });
 
+  it("omits identifiable malformed resolved history while keeping valid active incidents", () => {
+    const snapshot = parseIncidentIoRss(
+      feed(
+        item({
+          guid: "resolved-malformed-1",
+          title: "Previous incident",
+          status: "Resolved",
+          description: "<b>Status: Resolved</b><p>Malformed resolved history"
+        }) +
+        item({
+          guid: "active-valid-1",
+          title: "API degradation",
+          status: "Investigating",
+          components: ["Core APIs (Partial outage)"]
+        })
+      ),
+      context
+    );
+
+    expect(snapshot.overallStatus).toBe("major");
+    expect(snapshot.incidents).toMatchObject([
+      { externalId: "active-valid-1", status: "investigating", shouldNotify: true }
+    ]);
+  });
+
+  it("rejects malformed embedded HTML for active incidents", () => {
+    expect(() =>
+      parseIncidentIoRss(
+        feed(item({
+          guid: "active-malformed-1",
+          title: "API degradation",
+          status: "Investigating",
+          description: "<b>Status: Investigating</b><ul><li>Core APIs (Partial outage)</ul>"
+        })),
+        context
+      )
+    ).toThrow("Invalid incident.io RSS for Didit");
+  });
+
   it("normalizes active incidents and applies the most severe component state", () => {
     const snapshot = parseIncidentIoRss(
       feed(
@@ -157,6 +196,37 @@ describe("parseIncidentIoRss", () => {
     expect(snapshot.incidents).toMatchObject([
       { externalId: "unknown-1", impact: null, isMaintenance: false, shouldNotify: true },
       { externalId: "maintenance-1", isMaintenance: true, shouldNotify: false }
+    ]);
+  });
+
+  it("leaves overall status healthy for a maintenance-only feed", () => {
+    const snapshot = parseIncidentIoRss(
+      feed(item({
+        guid: "maintenance-only-1",
+        link: "https://status.didit.me/maintenance/maintenance-only-1",
+        title: "Database maintenance",
+        status: "Maintenance in progress",
+        components: ["Business Console (Partial outage)"]
+      })),
+      context
+    );
+
+    expect(snapshot.overallStatus).toBe("none");
+    expect(snapshot.incidents).toMatchObject([
+      {
+        externalId: "maintenance-only-1",
+        isMaintenance: true,
+        shouldNotify: false,
+        raw: {
+          parsedComponents: [
+            {
+              name: "Business Console",
+              sourceStatus: "Partial outage",
+              status: "partial_outage"
+            }
+          ]
+        }
+      }
     ]);
   });
 
@@ -264,6 +334,35 @@ describe("parseIncidentIoRss", () => {
         externalId: "provider-wide-1",
         impact: null,
         shouldNotify: true
+      }
+    ]);
+  });
+
+  it("leaves overall status healthy for an explicit out-of-scope-only feed", () => {
+    const snapshot = parseIncidentIoRss(
+      feed(item({
+        guid: "out-of-scope-only-1",
+        title: "Identity provider outage",
+        status: "Investigating",
+        components: ["Identity provider (Full outage)"]
+      })),
+      context
+    );
+
+    expect(snapshot.overallStatus).toBe("none");
+    expect(snapshot.incidents).toMatchObject([
+      {
+        externalId: "out-of-scope-only-1",
+        shouldNotify: false,
+        raw: {
+          parsedComponents: [
+            {
+              name: "Identity provider",
+              sourceStatus: "Full outage",
+              status: "major_outage"
+            }
+          ]
+        }
       }
     ]);
   });
