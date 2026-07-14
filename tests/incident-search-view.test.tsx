@@ -40,6 +40,24 @@ describe("IncidentSearchView", () => {
     expect(html).toContain("해결됨");
     expect(html).toContain("마지막 수집");
     expect(html).toContain('href="https://status.example/incidents/1"');
+    expect(html).toContain('<th scope="col">서비스</th>');
+  });
+
+  it("renders Slack-style persisted impacts as unknown", () => {
+    const html = renderToStaticMarkup(
+      <IncidentSearchView
+        data={{
+          filters: parseIncidentSearchParams({}),
+          services: [],
+          incidents: [{ ...row, impact: "incident" }],
+          totalCount: 1,
+          totalPages: 1,
+          isPageOutOfRange: false
+        }}
+      />
+    );
+
+    expect(html).toContain("알 수 없음");
   });
 
   it("renders an empty state and preserves filters in pagination", () => {

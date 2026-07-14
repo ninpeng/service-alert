@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppSidebar } from "../AppSidebar";
 import { formatDashboardDateTime } from "../../lib/dashboard/date-format";
 import type { IncidentSearchData, IncidentSearchRow } from "../../lib/incidents/data";
+import { getIncidentImpactLabel } from "../../lib/incidents/impact";
 import { isResolvedIncident } from "../../lib/incidents/query";
 import { buildIncidentSearchHref } from "../../lib/incidents/search-params";
 
@@ -47,7 +48,7 @@ function FilterSelect({ label, name, value, options }: { label: string; name: st
 }
 
 function IncidentTable({ incidents }: { incidents: IncidentSearchRow[] }) {
-  return <div className="incident-table-wrap"><table className="incident-history-table"><thead><tr><th>서비스</th><th>장애</th><th>상태 / 영향도</th><th>발생 / 해결</th><th>마지막 수집</th><th><span className="sr-only">원문</span></th></tr></thead><tbody>{incidents.map((incident) => {
+  return <div className="incident-table-wrap"><table className="incident-history-table"><thead><tr><th scope="col">서비스</th><th scope="col">장애</th><th scope="col">상태 / 영향도</th><th scope="col">발생 / 해결</th><th scope="col">마지막 수집</th><th scope="col"><span className="sr-only">원문</span></th></tr></thead><tbody>{incidents.map((incident) => {
     const resolved = isResolvedIncident(incident);
     const sourceUrl = resolveIncidentSourceUrl(incident.url, incident.service.endpoint);
     return <tr key={incident.id}><td data-label="서비스"><strong>{incident.service.name}</strong><small>{incident.service.provider}</small></td><td data-label="장애"><strong>{incident.title}</strong>{incident.isMaintenance ? <small>예정 점검</small> : null}</td><td data-label="상태 / 영향도"><span className={`status-pill ${resolved ? "success" : "danger"}`}><span aria-hidden="true" />{resolved ? "해결됨" : "진행 중"}</span><small>{impactText(incident.impact)}</small></td><td data-label="발생 / 해결"><time>{formatDate(incident.startedAt)}</time><small>{incident.resolvedAt ? `해결 ${formatDate(incident.resolvedAt)}` : "해결 기록 없음"}</small></td><td data-label="마지막 수집"><time>{formatDate(incident.lastSeenAt)}</time></td><td data-label="원문">{sourceUrl ? <a className="icon-button incident-source-button" href={sourceUrl} target="_blank" rel="noreferrer" aria-label={`${incident.service.name} 장애 원문 열기`} title="원문 열기"><ExternalLink aria-hidden="true" size={16} /></a> : <span className="incident-source-unavailable">원문 없음</span>}</td></tr>;
@@ -80,5 +81,5 @@ function parseSafeHttpsUrl(value: string | null | undefined) {
 }
 
 function formatDate(value: Date | null) { return formatDashboardDateTime(value?.toISOString() ?? null, "기록 없음"); }
-function impactText(value: string | null) { return ({ critical: "심각", major: "주요", minor: "일부", none: "영향 없음" } as Record<string, string>)[value ?? ""] ?? "알 수 없음"; }
+function impactText(value: string | null) { return getIncidentImpactLabel(value); }
 function periodText(value: string) { return ({ "24h": "최근 24시간", "7d": "최근 7일", "30d": "최근 30일", all: "전체 기간" } as Record<string, string>)[value] ?? "최근 30일"; }

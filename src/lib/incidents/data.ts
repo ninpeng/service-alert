@@ -27,6 +27,23 @@ export interface IncidentSearchRow {
   };
 }
 
+export const incidentSearchRowSelect = {
+  id: true,
+  title: true,
+  status: true,
+  impact: true,
+  url: true,
+  startedAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+  firstSeenAt: true,
+  lastSeenAt: true,
+  isMaintenance: true,
+  service: {
+    select: { name: true, provider: true, endpoint: true }
+  }
+} satisfies Prisma.IncidentSelect;
+
 export interface IncidentListQuery {
   where: Prisma.IncidentWhereInput;
   orderBy: Prisma.IncidentOrderByWithRelationInput[];
@@ -59,11 +76,7 @@ export const prismaIncidentSearchRepository: IncidentSearchRepository = {
   listIncidents: (query) =>
     prisma.incident.findMany({
       ...query,
-      include: {
-        service: {
-          select: { name: true, provider: true, endpoint: true }
-        }
-      }
+      select: incidentSearchRowSelect
     })
 };
 

@@ -30,7 +30,6 @@ export function parseIncidentSearchParams(raw: RawIncidentSearchParams): Inciden
   const period = first(raw.period);
   const type = first(raw.type);
   const requestedService = (first(raw.service) ?? "all").trim() || "all";
-  const parsedPage = Number.parseInt(first(raw.page) ?? "1", 10);
 
   return {
     q: (first(raw.q) ?? "").trim().slice(0, 100),
@@ -42,7 +41,7 @@ export function parseIncidentSearchParams(raw: RawIncidentSearchParams): Inciden
     impact: impacts.has(impact as IncidentImpactFilter) ? impact as IncidentImpactFilter : "all",
     period: periods.has(period as IncidentPeriodFilter) ? period as IncidentPeriodFilter : "30d",
     type: types.has(type as IncidentTypeFilter) ? type as IncidentTypeFilter : "incident",
-    page: Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1
+    page: parsePage(first(raw.page))
   };
 }
 
@@ -77,4 +76,11 @@ export function buildIncidentSearchHref(
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePage(value: string | undefined) {
+  if (!value || !/^[1-9]\d*$/.test(value)) return 1;
+
+  const page = Number(value);
+  return Number.isSafeInteger(page) ? page : 1;
 }

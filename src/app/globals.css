@@ -607,7 +607,7 @@ a.metric-card:focus-visible {
   .incident-filter-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .command-button, .secondary-command { width: 100%; }
   .incident-history-table, .incident-history-table tbody, .incident-history-table tr, .incident-history-table td { display: block; width: 100%; }
-  .incident-history-table thead { display: none; }
+  .incident-history-table thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
   .incident-history-table tr { border-bottom: 1px solid var(--border); padding: 10px 14px; }
   .incident-history-table td { display: grid; grid-template-columns: minmax(90px, 0.35fr) minmax(0, 1fr); gap: 12px; border: 0; padding: 7px 0; }
   .incident-history-table td::before { content: attr(data-label); grid-column: 1; grid-row: 1 / -1; color: var(--muted); font-size: 12px; font-weight: 700; }

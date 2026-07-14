@@ -42,6 +42,14 @@ describe("parseIncidentSearchParams", () => {
     });
     expect(parseIncidentSearchParams({ service: "not-configured" }).service).toBe("all");
   });
+
+  it("accepts only complete positive safe integer page values", () => {
+    for (const value of ["2junk", "1.5", "01", "0", "-1", "9007199254740992"]) {
+      expect(parseIncidentSearchParams({ page: value }).page).toBe(1);
+    }
+
+    expect(parseIncidentSearchParams({ page: "25" }).page).toBe(25);
+  });
 });
 
 describe("incident search dates and URLs", () => {

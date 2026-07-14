@@ -55,7 +55,7 @@ describe("incident search query", () => {
             { status: { in: ["resolved", "complete", "completed", "postmortem"] } }
           ]
         },
-        { OR: [{ impact: null }, { impact: "" }] },
+        { OR: [{ impact: null }, { impact: "" }, { impact: { notIn: ["critical", "major", "minor", "none"] } }] },
         { isMaintenance: true }
       ]
     });
@@ -71,5 +71,11 @@ describe("incident search query", () => {
       { firstSeenAt: "desc" },
       { id: "desc" }
     ]);
+  });
+
+  it("treats Slack's incident impact as unknown", () => {
+    expect(buildIncidentWhere(parseIncidentSearchParams({ impact: "unknown", period: "all", type: "all" }))).toEqual({
+      AND: [{ OR: [{ impact: null }, { impact: "" }, { impact: { notIn: ["critical", "major", "minor", "none"] } }] }]
+    });
   });
 });

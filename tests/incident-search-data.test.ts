@@ -1,8 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
-import { loadIncidentSearchData, type IncidentSearchRepository } from "@/lib/incidents/data";
+import { incidentSearchRowSelect, loadIncidentSearchData, type IncidentSearchRepository } from "@/lib/incidents/data";
 import { parseIncidentSearchParams } from "@/lib/incidents/search-params";
 
 describe("loadIncidentSearchData", () => {
+  it("selects only fields required by the incident search row", () => {
+    expect(incidentSearchRowSelect).toEqual({
+      id: true,
+      title: true,
+      status: true,
+      impact: true,
+      url: true,
+      startedAt: true,
+      updatedAt: true,
+      resolvedAt: true,
+      firstSeenAt: true,
+      lastSeenAt: true,
+      isMaintenance: true,
+      service: {
+        select: { name: true, provider: true, endpoint: true }
+      }
+    });
+  });
+
   it("loads service options, count, and one 25-row page in parallel", async () => {
     const repository: IncidentSearchRepository = {
       listServices: vi.fn().mockResolvedValue([{ name: "JIRA", provider: "jira" }]),

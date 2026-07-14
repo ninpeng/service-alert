@@ -1,4 +1,5 @@
 import type { Prisma } from "../../generated/prisma/client";
+import { RECOGNIZED_INCIDENT_IMPACTS } from "./impact";
 import { getIncidentPeriodStart, type IncidentSearchFilters } from "./search-params";
 
 export const TERMINAL_INCIDENT_STATUSES = ["resolved", "complete", "completed", "postmortem"];
@@ -51,7 +52,7 @@ export function buildIncidentWhere(
   }
 
   if (filters.impact === "unknown") {
-    AND.push({ OR: [{ impact: null }, { impact: "" }] });
+    AND.push({ OR: [{ impact: null }, { impact: "" }, { impact: { notIn: RECOGNIZED_INCIDENT_IMPACTS } }] });
   } else if (filters.impact !== "all") {
     AND.push({ impact: filters.impact });
   }
