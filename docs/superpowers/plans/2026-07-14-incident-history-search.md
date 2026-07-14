@@ -19,6 +19,7 @@
 - 필터와 페이지 링크는 URL에 상태를 보존하고 조건 변경 시 `page`를 제거한다.
 - 커밋 메시지에 `NO-JIRA`를 넣지 않는다.
 - Node 22.22.0과 기존 pnpm 10.28.2를 사용한다.
+- 브라우저 QA는 격리 worktree의 production build를 `127.0.0.1:3334`에서 실행하고, 운영 launchd와 `3333`은 변경하지 않는다.
 
 ---
 
@@ -1105,24 +1106,25 @@ git diff --check
 
 Expected: all test files pass; typecheck, lint, production build, and diff check exit `0`.
 
-- [ ] **Step 3: Restart only the web LaunchAgent after build**
+- [ ] **Step 3: Start the isolated production build on port 3334**
 
 Run:
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.service-alert.web
+sqlite3 /Users/ninpeng/workspace/service-alert/dev.db ".backup /private/tmp/service-alert-incident-search-qa.db"
+PATH=/Users/ninpeng/.local/share/fnm/node-versions/v22.22.0/installation/bin:$PATH DATABASE_URL=file:/private/tmp/service-alert-incident-search-qa.db pnpm exec next start -H 127.0.0.1 -p 3334
 ```
 
-Do not trigger `com.service-alert.worker`; this feature is read-only and a manual worker run could send Slack notifications.
+Do not restart `com.service-alert.web` or trigger `com.service-alert.worker`. The existing `3333` dashboard and scheduled worker must remain untouched until the feature is merged.
 
-Expected: `launchctl print gui/$(id -u)/com.service-alert.web` reports `state = running` and both `/` and `/incidents` return HTTP `200`.
+Expected: the worktree build reports ready on `http://127.0.0.1:3334`, and both `/` and `/incidents` return HTTP `200` using the disposable SQLite backup.
 
 - [ ] **Step 4: Run Browser plugin QA**
 
 Required flow:
 
 ```text
-http://localhost:3333/
+http://127.0.0.1:3334/
 → 최근 장애의 전체 이력
 → /incidents 기본 최근 30일 결과
 → 서비스 필터 적용
@@ -1142,6 +1144,8 @@ Verify with Browser plugin on `1440x900` and `390x844`:
 - table has no clipping or incoherent overlap;
 - mobile rows do not require horizontal scrolling;
 - external source link has the expected `href` without navigating away during QA.
+
+Stop the isolated server session after Browser QA. Leave the production launchd services running on `3333` without changes.
 
 - [ ] **Step 5: Review React changes against the React best-practices skill**
 
