@@ -3,6 +3,7 @@ node_modules
 .DS_Store
 .playwright-mcp
 .pnpm-store
+.worktrees
 coverage
 dist
 src/generated/prisma
