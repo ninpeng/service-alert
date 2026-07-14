@@ -23,7 +23,7 @@ export function IncidentSearchView({ data }: { data: IncidentSearchData }) {
         <nav className="segmented-control" aria-label="진행 상태">
           {stateOptions.map(([value, label]) => <Link key={value} className={filters.state === value ? "active" : undefined} href={buildIncidentSearchHref(filters, { state: value, page: 1 })} aria-current={filters.state === value ? "page" : undefined}>{label}</Link>)}
         </nav>
-        <form className="incident-filter-form" method="get" action="/incidents">
+        <form key={buildIncidentSearchHref(filters)} className="incident-filter-form" method="get" action="/incidents">
           <input type="hidden" name="state" value={filters.state} />
           <label className="incident-filter-search"><span>검색</span><input name="q" type="search" maxLength={100} defaultValue={filters.q} placeholder="장애 제목 또는 서비스" /></label>
           <FilterSelect label="서비스" name="service" value={filters.service} options={serviceOptions} />
