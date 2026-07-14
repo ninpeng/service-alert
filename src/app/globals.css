@@ -559,3 +559,57 @@ a.metric-card:focus-visible {
     display: none;
   }
 }
+
+.incident-history-content { align-content: start; }
+.incident-history-header h1 { font-size: 30px; }
+.incident-filter-band { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.segmented-control { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding: 12px 16px; }
+.segmented-control a { padding: 7px 11px; border-radius: 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.segmented-control a.active { background: #e8f0ff; color: var(--accent); }
+.incident-filter-form { display: grid; grid-template-columns: minmax(220px, 1.6fr) repeat(4, minmax(120px, 0.7fr)) auto; gap: 12px; align-items: end; padding: 16px; }
+.incident-filter-form label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+.incident-filter-form input, .incident-filter-form select { width: 100%; min-width: 0; height: 38px; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text); padding: 0 10px; font: inherit; }
+.incident-filter-actions { display: flex; gap: 8px; }
+.command-button, .secondary-command { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; border-radius: 6px; padding: 0 12px; font-size: 13px; font-weight: 720; }
+.command-button { border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+.secondary-command { border: 1px solid var(--border); background: #fff; color: var(--text); }
+.incident-table-wrap { overflow-x: auto; }
+.incident-history-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.incident-history-table th, .incident-history-table td { border-bottom: 1px solid var(--border); padding: 13px 14px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.incident-history-table th { background: var(--panel-subtle); color: var(--muted); font-size: 12px; }
+.incident-history-table td { font-size: 13px; }
+.incident-history-table th:nth-child(1) { width: 13%; }
+.incident-history-table th:nth-child(2) { width: 31%; }
+.incident-history-table th:nth-child(3) { width: 16%; }
+.incident-history-table th:nth-child(4) { width: 17%; }
+.incident-history-table th:nth-child(5) { width: 15%; }
+.incident-history-table th:nth-child(6) { width: 8%; }
+.incident-history-table strong, .incident-history-table small, .incident-history-table time { display: block; }
+.incident-history-table small { margin-top: 5px; color: var(--muted); }
+.incident-source-button { width: 34px; height: 34px; }
+.incident-pagination { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 14px 16px; font-size: 13px; }
+.incident-pagination > span:last-child { text-align: right; }
+.incident-pagination [aria-disabled="true"] { color: #98a2b3; }
+.incident-empty { display: grid; gap: 8px; }
+.incident-empty a { color: var(--accent); font-weight: 700; }
+.route-error { display: grid; justify-items: start; gap: 12px; max-width: 520px; margin: 12vh auto; padding: 24px; }
+.route-error h1, .route-error p { margin: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+@media (max-width: 1100px) {
+  .incident-filter-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .incident-filter-actions { align-self: end; }
+}
+
+@media (max-width: 700px) {
+  .segmented-control { overflow-x: auto; }
+  .incident-filter-form { grid-template-columns: 1fr; }
+  .incident-filter-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .command-button, .secondary-command { width: 100%; }
+  .incident-history-table, .incident-history-table tbody, .incident-history-table tr, .incident-history-table td { display: block; width: 100%; }
+  .incident-history-table thead { display: none; }
+  .incident-history-table tr { border-bottom: 1px solid var(--border); padding: 10px 14px; }
+  .incident-history-table td { display: grid; grid-template-columns: minmax(90px, 0.35fr) minmax(0, 1fr); gap: 12px; border: 0; padding: 7px 0; }
+  .incident-history-table td::before { content: attr(data-label); grid-column: 1; grid-row: 1 / -1; color: var(--muted); font-size: 12px; font-weight: 700; }
+  .incident-history-table td > * { grid-column: 2; }
+}
