@@ -1,4 +1,5 @@
 import { defaultMonitoredServices } from "../status/default-services";
+import type { Route } from "next";
 
 export const INCIDENTS_PER_PAGE = 25;
 
@@ -58,7 +59,7 @@ export function getIncidentPeriodStart(period: IncidentPeriodFilter, now = new D
 export function buildIncidentSearchHref(
   filters: IncidentSearchFilters,
   overrides: Partial<IncidentSearchFilters> = {}
-) {
+): Route {
   const next = { ...filters, ...overrides };
   const params = new URLSearchParams();
 
@@ -71,7 +72,7 @@ export function buildIncidentSearchHref(
   if (next.page > 1) params.set("page", String(next.page));
 
   const query = params.toString();
-  return query ? `/incidents?${query}` : "/incidents";
+  return (query ? `/incidents?${query}` : "/incidents") as Route;
 }
 
 function first(value: string | string[] | undefined) {

@@ -58,6 +58,14 @@ pnpm start
 http://localhost:3333
 ```
 
+전체 장애 이력은 아래 주소에서 검색합니다.
+
+```text
+http://localhost:3333/incidents
+```
+
+기본 조회 범위는 최근 30일의 실제 장애이며, 서비스·진행 상태·영향도·기간·유형 필터를 URL에 유지합니다.
+
 대시보드와 같은 데이터를 JSON으로 보려면:
 
 ```text
