@@ -74,6 +74,45 @@ describe("IncidentSearchView", () => {
     expect(paged).toContain("2 / 3");
   });
 
+  it("falls back from blank or unsafe incident URLs to a valid HTTPS service endpoint", () => {
+    for (const url of ["   ", "javascript:alert(1)"]) {
+      const html = renderToStaticMarkup(
+        <IncidentSearchView
+          data={{
+            filters: parseIncidentSearchParams({}),
+            services: [],
+            incidents: [{ ...row, url, service: { ...row.service, endpoint: " https://status.example/fallback " } }],
+            totalCount: 1,
+            totalPages: 1,
+            isPageOutOfRange: false
+          }}
+        />
+      );
+
+      expect(html).toContain('href="https://status.example/fallback"');
+      expect(html).not.toContain("javascript:alert(1)");
+    }
+  });
+
+  it("renders an unavailable source state when incident and endpoint URLs are unsafe", () => {
+    const html = renderToStaticMarkup(
+      <IncidentSearchView
+        data={{
+          filters: parseIncidentSearchParams({}),
+          services: [],
+          incidents: [{ ...row, url: "ftp://status.example/incident", service: { ...row.service, endpoint: "http://status.example" } }],
+          totalCount: 1,
+          totalPages: 1,
+          isPageOutOfRange: false
+        }}
+      />
+    );
+
+    expect(html).toContain('<td data-label="원문"><span class="incident-source-unavailable">원문 없음</span></td>');
+    expect(html).not.toContain('href="ftp://status.example/incident"');
+    expect(html).not.toContain('href="http://status.example"');
+  });
+
   it("renders the route error recovery state", () => {
     const html = renderToStaticMarkup(
       <IncidentsError error={new Error("db failed")} reset={() => undefined} />
