@@ -4,12 +4,12 @@ import {
   Clock3,
   ExternalLink,
   FileWarning,
-  RadioTower,
   RefreshCw,
   Server,
   TriangleAlert
 } from "lucide-react";
 import { RefreshControls } from "./RefreshControls";
+import { AppSidebar, IncidentHistoryLink } from "./AppSidebar";
 import { getDashboardData } from "../lib/dashboard/data";
 import { formatDashboardDateTime } from "../lib/dashboard/date-format";
 import { isActionableActiveIncident } from "../lib/dashboard/summary";
@@ -32,18 +32,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <RadioTower aria-hidden="true" size={24} />
-          <span>서비스 알림</span>
-        </div>
-        <nav className="nav-list" aria-label="대시보드 섹션">
-          <a href="#operations">운영</a>
-          <a href="#services">서비스</a>
-          <a href="#incidents">장애 이력</a>
-          <a href="#worker">수집 실행</a>
-        </nav>
-      </aside>
+      <AppSidebar activePage="dashboard" />
 
       <section className="content">
         <header className="topbar">
@@ -178,6 +167,7 @@ export default async function DashboardPage() {
                 <h2>최근 장애</h2>
                 <p>예정 점검은 저장하지만 Slack 알림에서는 제외합니다.</p>
               </div>
+              <IncidentHistoryLink />
             </div>
             <div className="incident-list">
               {dashboard.services

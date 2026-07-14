@@ -80,6 +80,11 @@ a {
   color: #ffffff;
 }
 
+.nav-list a.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
 .content {
   display: grid;
   gap: 22px;
@@ -224,6 +229,16 @@ a.metric-card:focus-visible {
 .timestamp {
   color: var(--muted);
   font-size: 13px;
+  white-space: nowrap;
+}
+
+.section-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 720;
   white-space: nowrap;
 }
 
